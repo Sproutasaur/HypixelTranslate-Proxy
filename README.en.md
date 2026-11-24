@@ -28,8 +28,8 @@ Chat reading, translation and display-name rewriting only. No packet automation,
 
 ## Features
 
-- **Incoming chat**: the translation is appended as its own line (`└ …`), queued by sequence so lines never interleave.
-- **Outgoing chat**: Chinese is translated before sending; for chat commands (`/pc`, `/msg`, …) only the body is translated, the command and player name are kept.
+- **Incoming chat**: server messages are translated to `translate.targetLanguage` (code default `zh-CN`, changeable); the translation is appended as its own line (`└ …`), queued by sequence so lines never interleave.
+- **Outgoing chat**: your text is translated to `outgoingTargetLanguage` (default `en`) before sending; for chat commands (`/pc`, `/msg`, …) only the body is translated, the command and player name are kept.
 - **Token friendly**: slang (`gg`, `lol`, `ez`…), very short lines, repeated spam, `[NPC]` dialogue and non-player messages are skipped.
 - **Tab stats**: FKDR and friends appended to each name; nameplates untouched. Data from the official Hypixel API, a third-party stats site, or `auto` fallback.
 - **Custom MOTD** for the multiplayer list.
@@ -93,7 +93,7 @@ Keep the handshake hostname at its default `mc.hypixel.net` — Hypixel routes b
 4. Limited translation throughput: 4 workers plus a per-message timeout; heavy spam drops translations.
 5. Shared exit IP with public accelerator IPs may affect the server's risk scoring.
 6. Tab stats cache lives only for the current session; a reconnect queries again.
-7. A local LLM endpoint without an API key only works for incoming chat — outgoing Chinese is not intercepted when `apiKey` is empty (any non-empty placeholder works).
+7. A local LLM endpoint without an API key only works for incoming chat — outgoing CJK text is not intercepted when `apiKey` is empty (any non-empty placeholder works).
 8. Not verified against the real Hypixel: real login/sessionserver, real accelerator behaviour, real Tab structure, long-run stability.
 
 ## Disclaimer

@@ -26,9 +26,9 @@
 
 ## 功能
 
-- **收消息翻译**：译文固定在原文下一行（`└ …`），按原文顺序排队，不互相穿插。
-- **发消息翻译**：你打的中文自动翻成外语再发出去；`/pc`、`/msg` 这类聊天命令只翻正文，命令和玩家名原样。
-- **不浪费 token**：黑话（`gg`/`lol`/`ez`…）、短句、重复刷屏、`[NPC]` 对话、非玩家聊天默认跳过；已是中文的不翻。
+- **收消息翻译**：服务器消息翻成 `translate.targetLanguage`（代码默认中文 `zh-CN`，可改）；译文固定在原文下一行（`└ …`），按原文顺序排队，不互相穿插。
+- **发消息翻译**：你打的文字翻成 `outgoingTargetLanguage`（默认英文 `en`，可改）再发出去；`/pc`、`/msg` 这类聊天命令只翻正文，命令和玩家名原样。
+- **不浪费 token**：黑话（`gg`/`lol`/`ez`…）、短句、重复刷屏、`[NPC]` 对话、非玩家聊天默认跳过；已是目标语言的不翻。
 - **Tab 挂统计**：玩家名后加 FKDR 等数据，不影响头顶名牌。数据源支持 Hypixel 官方 API / 第三方统计站 / auto 降级。
 - **服务器列表 MOTD**：可自定义文字、颜色码、显示人数。
 - **断线联动**：客户端断开立刻断上游，上游踢人立刻断本地，不残留挂机。
@@ -104,6 +104,8 @@ java -jar target/HypixelTranslate-Proxy.jar
 | `dedupSeconds` | `60` | 同一句多少秒内重复出现不再翻，`0` 关闭 |
 | `skipPrefixes` | `["[NPC]"]` | 这些开头的消息不翻；Tab 里这类 NPC 也不查统计 |
 | `skipWords` | gg/lol/ez… | 整条消息只由这些词组成就不翻；清空 `[]` 关闭 |
+
+> 收发两个方向的语言分开配：收消息看 `translate.targetLanguage`（代码默认 `zh-CN`），发消息看 `outgoingTargetLanguage`（模板里就是 `en`）。模板没带 `targetLanguage` 这一行，想收英文/日文就在 `translate` 里自己加一行 `"targetLanguage": "en"`。
 
 ### Tab 统计 `tab`
 
