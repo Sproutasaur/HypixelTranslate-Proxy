@@ -71,7 +71,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 ```json
 {
   "upstreamHost": "1.2.3.4",
-  "upstreamPort": 16448
+  "upstreamPort": 25565
 }
 ```
 
