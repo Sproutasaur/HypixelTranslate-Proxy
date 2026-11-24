@@ -15,6 +15,7 @@
 
   "translate": {
     "apiKey": "",                   // DeepSeek 密钥，不填就不翻译
+    "targetLanguage": "zh-CN",       // 收到的消息翻成什么语言（en / ja 随便填）
     "model": "deepseek-flash",
     "appendWaitMs": 250,            // 原文最多压这么久等译文（毫秒），调大更整齐、调小更跟手
     "translateOutgoing": true,      // 你打的中文翻成英文再发出去，队友能看懂

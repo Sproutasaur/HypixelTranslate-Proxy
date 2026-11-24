@@ -26,7 +26,7 @@
 
 ## 功能
 
-- **收消息翻译**：服务器消息翻成 `translate.targetLanguage`（代码默认中文 `zh-CN`，可改）；译文固定在原文下一行（`└ …`），按原文顺序排队，不互相穿插。
+- **收消息翻译**：服务器消息翻成 `translate.targetLanguage`（默认中文 `zh-CN`，可改）；译文固定在原文下一行（`└ …`），按原文顺序排队，不互相穿插。
 - **发消息翻译**：你打的文字翻成 `outgoingTargetLanguage`（默认英文 `en`，可改）再发出去；`/pc`、`/msg` 这类聊天命令只翻正文，命令和玩家名原样。
 - **不浪费 token**：黑话（`gg`/`lol`/`ez`…）、短句、重复刷屏、`[NPC]` 对话、非玩家聊天默认跳过；已是目标语言的不翻。
 - **Tab 挂统计**：玩家名后加 FKDR 等数据，不影响头顶名牌。数据源支持 Hypixel 官方 API / 第三方统计站 / auto 降级。
@@ -95,6 +95,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 | 键 | 默认 | 说明 |
 |---|---|---|
 | `apiKey` | 空 | 翻译接口密钥。为空时不翻译，也不会拦截你发出去的中文 |
+| `targetLanguage` | `zh-CN` | 收到的消息翻成什么语言，`en` / `ja` 等随便填 |
 | `model` | `deepseek-flash` | 模型名；接口按 `{baseUrl}/chat/completions` 调用，`baseUrl` 默认 `https://api.deepseek.com` |
 | `appendWaitMs` | `250` | 原文最多压多久等译文（毫秒），超时先显示原文 |
 | `translateOutgoing` | `true` | 把中文发出去前翻成外语 |
@@ -105,7 +106,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 | `skipPrefixes` | `["[NPC]"]` | 这些开头的消息不翻；Tab 里这类 NPC 也不查统计 |
 | `skipWords` | gg/lol/ez… | 整条消息只由这些词组成就不翻；清空 `[]` 关闭 |
 
-> 收发两个方向的语言分开配：收消息看 `translate.targetLanguage`（代码默认 `zh-CN`），发消息看 `outgoingTargetLanguage`（模板里就是 `en`）。模板没带 `targetLanguage` 这一行，想收英文/日文就在 `translate` 里自己加一行 `"targetLanguage": "en"`。
+> 收发两个方向的语言分开配：`targetLanguage` 管收进来的消息，`outgoingTargetLanguage` 管发出去的消息。
 
 ### Tab 统计 `tab`
 
