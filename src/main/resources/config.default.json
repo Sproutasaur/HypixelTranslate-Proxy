@@ -1,0 +1,83 @@
+{
+  // 首次运行自动生成。下面的值全是程序默认值，改哪项就生效哪项。
+  // 最少只需要改两处：translate.apiKey（DeepSeek 密钥）、tab.hypixelApiKey（Hypixel key）。
+  // 游戏里「直接连接」填 127.0.0.1:25565
+
+  // 监听地址。只给自己用填 127.0.0.1；填 0.0.0.0 等于把账号开放给同网段所有人
+  "listenHost": "127.0.0.1",
+  "listenPort": 25565,
+
+  // 服务器列表 MOTD。支持 § 颜色码和 \n 换行；online/max 只影响显示
+  "motd": {
+    "text": "HypixelTranslate-Proxy · 本地翻译代理",
+    "online": 1,
+    "max": 1
+  },
+
+  // 上游线路。直连写 mc.hypixel.net + 25565；用加速器就填加速器给的 IP 和端口
+  "upstreamHost": "mc.hypixel.net",
+  "upstreamPort": 25565,
+
+  // 握手时告诉服务器要连哪个域名。Hypixel 靠它路由，连 Hypixel 时这两个不能动
+  "handshakeHost": "mc.hypixel.net",
+  "handshakePort": 25565,
+
+  "protocolVersion": 47,              // 47 = 1.8.9，改不了
+  "authFile": "auth.json",            // 登录令牌存放文件，删掉就要重新登录
+  "openBrowserOnLogin": true,         // 首次登录自动打开浏览器
+  "copyCodeToClipboardOnLogin": true, // 首次登录自动复制设备码
+  "idleTimeoutSeconds": 60,           // 任一侧空闲这么久就断开
+
+  // 调试开关，正常玩一律 false
+  "debugSkipAuth": false,             // 跳过微软登录，用假身份连离线服
+  "debugName": "ProxyBot",
+  "debugSkipSessionJoin": false,
+  "debugTab": false,                  // 把 Tab 原始包写到日志
+
+  "translate": {
+    "enabled": true,
+    "targetLanguage": "zh-CN",
+    "appendWaitMs": 250,              // 原文最多压这么久等译文（毫秒），调大更整齐、调小更跟手
+    "translateOutgoing": true,        // 你打的中文翻成英文再发出去
+    "outgoingTargetLanguage": "en",   // 发出去的话翻成什么语言
+    "skipOwnMessages": true,          // 服务器把你消息回显回来时不重复翻
+    "translateSystem": true,          // 系统位置播报的翻译开关，有 onlyPlayerChat 兜着
+    "onlyPlayerChat": true,           // 只翻玩家聊天，系统提示原样
+    "skipIfAlreadyTarget": true,      // 已经是中文的不翻
+    "dedupSeconds": 60,               // 同一句这么多秒内重复出现不再翻，0 = 关
+    "skipShortMessages": 10,          // 去掉名字后字母数 ≤ 10 的短句不翻，0 = 关
+    "skipPrefixes": ["[NPC]"],        // 这些开头的消息不翻；Tab 里这类 NPC 也不查统计
+    "skipWords": [
+      "gg", "ggwp", "wp", "ez", "ezpz", "l", "ll", "lol", "lmao", "lmfao", "rofl",
+      "xd", "omg", "kek", "kekw", "rip", "gl", "hf", "glhf", "gf",
+      "hi", "hey", "yo", "sup", "ty", "thx", "tyt", "brb", "afk", "gtg",
+      "ok", "okay", "nvm", "o7", "salute", "f", "ff", "w", "pog"
+    ],
+    "baseUrl": "https://api.deepseek.com",
+    "apiKey": "",                     // ← 填你的 sk- 开头密钥，不填就不翻译
+    "model": "deepseek-flash",
+    "timeoutMs": 1200,                // 单条翻译超时（毫秒）
+    "maxQueue": 40,                   // 队列上限，刷屏时超出就丢弃译文
+    "cacheSize": 2000,                // 译文缓存条数
+    "systemPrompt": "你是 Minecraft 聊天翻译器。把用户给出的聊天内容翻译成目标语言。要求：只输出译文本身，不要解释、不要加引号；玩家名、队伍标签、数字、坐标、命令(/开头)、物品ID、颜色代码不要翻译；Minecraft 黑话按玩家圈习惯处理（gg=打得漂亮，ez=轻松，wp=打得不错，creeper=苦力怕，nether=下界，ender=末影）；保留原来的语气，口语化，简短。"
+  },
+
+  "tab": {
+    "enabled": false,                 // Tab 名字后面挂统计，改 true 才生效
+    "hypixelApiKey": "",              // ← 游戏里输 /api new 生成；每天 300 次额度
+    "apiBase": "https://api.hypixel.net/v2",
+    // 数据源：official=官方 / thirdparty=第三方 / auto=官方不行就切第三方
+    "dataSource": "auto",
+    "thirdPartyBaseUrl": "https://api.khadow.lol",  // 第三方统计接口根地址
+    "stat": "bedwars_fkdr",           // 也能填 bedwars_wins / bedwars_final_kills / skywars_kdr
+    "label": "FKDR",                  // 数字后面那个标签文字
+    "separator": " §7| ",             // 名字和统计之间的分隔
+    "valueColor": "§b",               // 数字颜色：§b 青 §e 黄 §a 绿 §c 红 §6 金
+    "cacheMinutes": 180,              // 同一个人多久不重复查
+    "maxRequestsPerMinute": 30,       // 每分钟最多查几个
+    "concurrency": 8,                 // 同时查几个人，别超 16
+    "showPlaceholder": false,         // 没查回来时先显示 … 占位
+    "showUnknown": false,             // 查不到时显示 ?
+    "showRankPrefix": false           // 名字前补 [MVP+] 这类段位标签
+  }
+}

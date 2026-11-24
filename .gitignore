@@ -1,0 +1,28 @@
+# 构建产物
+target/
+*.class
+
+# 打包出来的 jar 走 Release，不进仓库
+*.jar
+
+# 登录令牌，绝对不能提交
+auth.json
+auth.json.bak
+config.json.broken-*
+
+# 配置：第一次运行由程序生成，里面会填 API key，不进仓库
+config.json
+
+# 调试诊断输出（debugTab 打开时生成）
+tab-debug.txt
+*.log
+
+# IDE / 系统
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 本地工具链（JDK / Maven 之类）
+.tools/
