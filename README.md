@@ -139,7 +139,10 @@ java -jar target/HypixelTranslate-Proxy.jar
 - `confirmed_cheater` → `[作弊确认]`，其它类型 → `[疑似作弊]`，只有黑名单没类型 → `[有标记]`
 - 同一玩家每局只提示一次；`Not_Blacklisted` 不提示
 - 换局（Tab 里一次大换血、认识的名字不到四分之一）时自动重置去重和条数上限，不是整个连接只给 20 条
-- **只有第三方接口带这组字段**：`dataSource = thirdparty`，或 `auto` 且官方那一路没查到（没 key / 429 / 没数据 / 当日额度用完）才落到第三方；纯 `official` 永远不提示
+- **只有第三方接口带这组字段，所以只有两种情况会提示**：
+  - `dataSource = thirdparty`：所有查询都走第三方统计站，有标记就提示；
+  - `dataSource = auto`：官方那一路查不到时才落到第三方（没 key / 429 冷却 / 没数据 / 当日 300 次额度用完）。**官方额度还没用完、官方正常返回时，走的是官方数据，不含 Urchin 字段，也就不会提示**
+  - `dataSource = official`：永远不提示（官方 `/player` 接口没有 `urchin_blacklist_status` / `urchin_type` / `urchin_reason`）
 - 提示行是本地直接写进客户端的，**不经过翻译管线**，不会被翻成别的语言，也不发到服务器
 - 标记来自社区库 Urchin，不是官方封号记录，只作参考
 

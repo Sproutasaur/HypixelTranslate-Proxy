@@ -45,7 +45,10 @@
     "valueColor": "§b",             // 数字颜色：§b 青 §e 黄 §a 绿 §c 红 §6 金
 
     // 作弊提醒：读第三方接口带回的 Urchin 标记，在自己聊天栏提示（只有 tab.enabled=true 才生效）
-    // 数据只有第三方接口才有：dataSource = thirdparty，或 auto 掉到第三方（官方没 key / 没数据 / 额度用完）
+    // 数据只有第三方接口才有，所以只在两种情况下生效：
+    //   1) dataSource = thirdparty：全部走第三方，有标记就提示
+    //   2) dataSource = auto：官方那一路查不到才落到第三方（没 key / 429 / 没数据 / 300 次额度用完）
+    // 官方额度没用完、官方正常返回时不提示；dataSource = official 永远不提示
     "cheatWarn": {
       "enabled": true,            // 关掉就完全不查、不提示
       "minLevel": "any",          // any = 有标记就提示；confirmed = 只提示 confirmed_cheater

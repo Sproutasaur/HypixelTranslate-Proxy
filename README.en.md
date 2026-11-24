@@ -97,6 +97,30 @@ Keep the handshake hostname at its default `mc.hypixel.net` — Hypixel routes b
 7. A local LLM endpoint without an API key only works for incoming chat — outgoing CJK text is not intercepted when `apiKey` is empty (any non-empty placeholder works).
 8. Not verified against the real Hypixel: real login/sessionserver, real accelerator behaviour, real Tab structure, long-run stability.
 
+## Cheat warning (`tab.cheatWarn`)
+
+A part of the Tab module: it only works when `tab.enabled = true`. Tab off means no lookup, no warning.
+
+Only the third-party stats site returns the Urchin pair (`urchin_blacklist_status` / `urchin_type` / `urchin_reason`), so it can only fire in these cases:
+
+- `dataSource = "thirdparty"` — every lookup goes to the third-party site; any flag is shown.
+- `dataSource = "auto"` — only for lookups the official API could not answer (no key, 429 cooldown, not found, 300/day quota used up). **While the official quota is still available and the official API answers, that data carries no Urchin fields, so nothing is shown.**
+- `dataSource = "official"` — never shown: the official `/player` endpoint has no Urchin fields.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | `true` | switch inside Tab; nothing happens when `tab.enabled = false` |
+| `minLevel` | `any` | `any` = warn on any flag; `confirmed` = only `confirmed_cheater` |
+| `maxPerSession` | `20` | cap per round, to avoid flooding on big servers |
+
+Line format (written straight into your own chat, never sent to the server):
+
+```
+[Urchin] Steve [作弊确认] confirmed_cheater · legitscaff · Blacklisted
+```
+
+`confirmed_cheater` → `[作弊确认]`, other types → `[疑似作弊]`, blacklist only → `[有标记]`. Once per player per round; the dedupe set and the counter reset when the round changes (player list turns over and fewer than a quarter of the names are known). The line is injected locally at the `CHAT` position, bypassing the translation pipeline, so it is never translated.
+
 ## Disclaimer
 
 Not affiliated with Mojang, Microsoft or Hypixel. For studying the Minecraft protocol and personal use only. Using an unofficial client/proxy may violate a server's terms and get your account banned — use at your own risk. The login flow uses Microsoft's device-code flow as an unofficial client and may stop working at any time.
