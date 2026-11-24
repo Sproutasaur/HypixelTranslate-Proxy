@@ -61,12 +61,11 @@ In game: Multiplayer → Direct Connect → `127.0.0.1:25565`.
 ```json
 {
   "upstreamHost": "1.2.3.4",
-  "upstreamPort": 16448,
-  "handshakeHost": "mc.hypixel.net"
+  "upstreamPort": 16448
 }
 ```
 
-`handshakeHost` **must stay `mc.hypixel.net`** — Hypixel routes by the hostname in the handshake, not by the IP you dialed.
+Keep the handshake hostname at its default `mc.hypixel.net` — Hypixel routes by that hostname, not by the IP you dialed.
 
 ## How it works
 

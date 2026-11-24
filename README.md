@@ -62,36 +62,31 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 ### 游戏内连接
 
-多人游戏 → 直接连接 → `127.0.0.1:25565`（或你配置的 `listenHost:listenPort`）。
+多人游戏 → 直接连接 → `127.0.0.1:25565`（端口由 `listenPort` 决定）。
 
 ## 接加速IP
+
+只改上游这两项即可：
 
 ```json
 {
   "upstreamHost": "1.2.3.4",
-  "upstreamPort": 16448,
-  "handshakeHost": "mc.hypixel.net"
+  "upstreamPort": 16448
 }
 ```
 
-**`handshakeHost` 必须保持 `mc.hypixel.net`**：Hypixel 按握手里的域名做路由，写加速商的域名会进不去主服。
+握手域名保持默认的 `mc.hypixel.net` —— Hypixel 按握手里的域名路由，配置文件里不写就是它，别改成加速商的域名。
 
 ## 配置
 
-配置文件由程序首次运行时从 jar 内置模板生成，带注释，`//` 合法。改哪项生效哪项，没写的字段走代码默认值。
+`config.json` 首次运行时自动生成。下面只列这份配置里真实存在的字段，其余字段代码里有默认值，完整清单见 `src/main/resources/config.default.json`。
 
 ### 基础
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `listenHost` / `listenPort` | `127.0.0.1` / `25565` | 监听地址。**改 `0.0.0.0` 等于把账号开放给同网段所有人** |
-| `upstreamHost` / `upstreamPort` | `mc.hypixel.net` / `25565` | 上游地址，可以是加速IP |
-| `handshakeHost` / `handshakePort` | `mc.hypixel.net` / `25565` | 握手包里写的域名，Hypixel 靠它路由 |
-| `protocolVersion` | `47` | 固定 1.8.9；客户端版本不符会被明确踢出 |
-| `authFile` | `auth.json` | 登录令牌文件，删掉就要重新登录 |
-| `idleTimeoutSeconds` | `60` | 任一侧空闲多久断开，防残留会话 |
-| `openBrowserOnLogin` | `true` | 设备码登录时自动打开浏览器 |
-| `copyCodeToClipboardOnLogin` | `true` | 自动复制设备码（Windows `clip` / macOS `pbcopy` / Linux `xclip`、`xsel`） |
+| `listenPort` | `25565` | 游戏内直连 `127.0.0.1:25565`；默认只监听本机 |
+| `upstreamHost` / `upstreamPort` | `mc.hypixel.net` / `25565` | 上游地址；用加速器时换成加速器给的 IP 和端口 |
 | `motd.text` | 见配置 | 列表文字，支持 `§` 颜色码与 `\n` 换行 |
 | `motd.online` / `motd.max` | `1` / `1` | **只影响显示**，实际仍是一账号一会话 |
 
@@ -99,26 +94,16 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `enabled` | `true` | 翻译总开关 |
-| `targetLanguage` | `zh-CN` | 收消息翻成什么语言 |
+| `apiKey` | 空 | 翻译接口密钥。为空时不翻译，也不会拦截你发出去的中文 |
+| `model` | `deepseek-flash` | 模型名；接口按 `{baseUrl}/chat/completions` 调用，`baseUrl` 默认 `https://api.deepseek.com` |
 | `appendWaitMs` | `250` | 原文最多压多久等译文（毫秒），超时先显示原文 |
 | `translateOutgoing` | `true` | 把中文发出去前翻成外语 |
 | `outgoingTargetLanguage` | `en` | 发出去翻成什么语言 |
-| `skipOwnMessages` | `true` | 自己说的话不翻（含服务器回显的那条） |
-| `translateSystem` | `true` | 系统位置播报的翻译开关（被 `onlyPlayerChat` 兜着，实际很少命中） |
 | `onlyPlayerChat` | `true` | 只翻能认出「名字: 内容」的玩家聊天 |
-| `skipIfAlreadyTarget` | `true` | 已是目标语言则不翻 |
-| `dedupSeconds` | `60` | 同一句多少秒内重复出现不再翻，`0` 关闭 |
 | `skipShortMessages` | `10` | 去掉名字后字母数 ≤ 该值的短句不翻，`0` 关闭 |
+| `dedupSeconds` | `60` | 同一句多少秒内重复出现不再翻，`0` 关闭 |
 | `skipPrefixes` | `["[NPC]"]` | 这些开头的消息不翻；Tab 里这类 NPC 也不查统计 |
 | `skipWords` | gg/lol/ez… | 整条消息只由这些词组成就不翻；清空 `[]` 关闭 |
-| `baseUrl` | `https://api.deepseek.com` | OpenAI 兼容接口根地址，实际请求 `{baseUrl}/chat/completions` |
-| `apiKey` | 空 | 接口密钥。为空时不翻译，也不会拦截你发出去的中文 |
-| `model` | `deepseek-flash` | 模型名 |
-| `timeoutMs` | `1200` | 单条超时，超时放弃、不阻塞聊天 |
-| `maxQueue` | `40` | 在途请求上限，刷屏时超出丢译文（原文照常显示） |
-| `cacheSize` | `2000` | 译文缓存条数 |
-| `systemPrompt` | 见配置 | 翻译提示词，可自行调整风格 |
 
 ### Tab 统计 `tab`
 
@@ -126,25 +111,10 @@ java -jar target/HypixelTranslate-Proxy.jar
 |---|---|---|
 | `enabled` | `false` | 总开关 |
 | `hypixelApiKey` | 空 | Hypixel 官方 key；`official` 模式下留空则不查 |
-| `apiBase` | `https://api.hypixel.net/v2` | 官方接口根地址，实际请求 `/player?uuid=` |
 | `dataSource` | `auto` | `official` / `thirdparty` / `auto` |
 | `thirdPartyBaseUrl` | `https://api.khadow.lol` | 第三方统计站，实际请求 `POST /stats` |
-| `stat` | `bedwars_fkdr` | 也支持 `bedwars_wins` / `bedwars_final_kills` / `bedwars_ws` / `skywars_kdr` |
+| `stat` | `bedwars_fkdr` | 也支持 `bedwars_wins` / `bedwars_final_kills` / `bedwars_winstreak` / `skywars_kdr` |
 | `label` / `separator` / `valueColor` | `FKDR` / `" §7\| "` / `§b` | 显示样式 |
-| `cacheMinutes` | `180` | 同一个人多久不重复查 |
-| `maxRequestsPerMinute` | `30` | 每分钟请求上限；官方真正的瓶颈是每天 300 次 |
-| `concurrency` | `8` | 同时查几个人，建议不超过 16 |
-| `showPlaceholder` | `false` | 未查回来时先显示 `…` |
-| `showUnknown` | `false` | 查不到（nick / 隐藏统计）时显示 `?` |
-| `showRankPrefix` | `false` | 名字前补 `[MVP+]` 这类段位标签 |
-
-### 调试
-
-| 键 | 默认 | 说明 |
-|---|---|---|
-| `debugSkipAuth` / `debugName` | `false` / `ProxyBot` | 跳过微软登录，用假身份连离线服 |
-| `debugSkipSessionJoin` | `false` | 跳过 sessionserver join（配合本地测试服） |
-| `debugTab` | `false` | 把 Tab 原始包写入日志 |
 
 ### 数据源怎么选
 
@@ -162,7 +132,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 ### 上游登录（完整 1.8.9 流程）
 
-1. `Handshake(0x00)` → `LoginStart(0x00)`，名字用代理账号名，域名用 `handshakeHost`
+1. `Handshake(0x00)` → `LoginStart(0x00)`，名字用代理账号名，握手域名用默认的 `mc.hypixel.net`
 2. `EncryptionRequest(0x01)`：生成 16 字节 shared secret，用服务端 RSA 公钥加密 secret 与 verifyToken
 3. 计算 `sha1(serverId + secret + publicKey)`，调用 sessionserver 的 join 接口（阻塞 HTTP 丢到独立线程池，不占用 Netty eventLoop）
 4. 回 `EncryptionResponse(0x01)`，启用 **AES/CFB8**（key = IV = shared secret），加解密在帧层之前
@@ -185,10 +155,10 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 ## 隐私与安全
 
-- **聊天内容会发给翻译接口**：`translate.baseUrl` 指向谁，聊天就发给谁。
+- **聊天内容会发给翻译接口**：翻译接口地址指向谁，聊天就发给谁。
 - **玩家名会发给第三方统计站**：`dataSource` 为 `auto` / `thirdparty` 时，Tab 里玩家的用户名会 POST 到 `thirdPartyBaseUrl`。
 - **`auth.json` 是明文 refresh token**：删掉即退出登录；不要提交、不要分享。
-- **`listenHost` 默认只监听本机**：改成 `0.0.0.0` 后同网段任何人都能连上来用你的账号。
+- **默认只监听 `127.0.0.1`**：不要把监听地址改成 `0.0.0.0`，那等于把账号开放给同网段所有人。
 - 代理不落盘记录聊天，只在控制台打印翻译结果。
 - 启动日志会打印 Hypixel key 的前 6 位用于排查，完整 key 不会输出。
 
