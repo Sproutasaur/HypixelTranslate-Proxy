@@ -100,6 +100,12 @@ Keep the handshake hostname at its default `mc.hypixel.net` — Hypixel routes b
 
 Not affiliated with Mojang, Microsoft or Hypixel. For studying the Minecraft protocol and personal use only. Using an unofficial client/proxy may violate a server's terms and get your account banned — use at your own risk. The login flow uses Microsoft's device-code flow as an unofficial client and may stop working at any time.
 
+## Contact
+
+- Email: 3844005667@qq.com
+- Issues and PRs are also welcome in the repo
+
 ## License
+
 
 [MIT](LICENSE).

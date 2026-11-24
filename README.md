@@ -206,6 +206,12 @@ src/main/java/com/mcproxy/
 └── tab/                     Tab 统计注入、队伍前缀镜像、诊断日志
 ```
 
+## 联系
+
+- 邮箱：3844005667@qq.com
+- Issue / PR 也可以直接在仓库里提
+
 ## License
+
 
 [MIT](LICENSE)。协议细节参考 [wiki.vg](https://wiki.vg/) 与 Minecraft 1.8.9 客户端实现。
