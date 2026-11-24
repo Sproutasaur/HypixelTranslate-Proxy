@@ -43,5 +43,11 @@
     "label": "FKDR",                // 数字后面那个标签文字
     "separator": " §7| ",           // 名字和统计之间的分隔
     "valueColor": "§b"              // 数字颜色：§b 青 §e 黄 §a 绿 §c 红 §6 金
+  },
+  // 作弊提醒：读第三方接口带回的 Urchin 标记，在自己聊天栏提示（只有自己可见）
+  "cheatWarn": {
+    "enabled": true,              // 关掉就完全不查、不提示
+    "minLevel": "any",            // any = 有标记就提示；confirmed = 只提示 confirmed_cheater
+    "maxPerSession": 20           // 单局最多提示几条，防止大服刷屏
   }
 }

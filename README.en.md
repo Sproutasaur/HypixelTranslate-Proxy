@@ -32,6 +32,7 @@ Chat reading, translation and display-name rewriting only. No packet automation,
 - **Outgoing chat**: your text is translated to `outgoingTargetLanguage` (default `en`) before sending; for chat commands (`/pc`, `/msg`, …) only the body is translated, the command and player name are kept.
 - **Token friendly**: slang (`gg`, `lol`, `ez`…), very short lines, repeated spam, `[NPC]` dialogue and non-player messages are skipped.
 - **Tab stats**: FKDR and friends appended to each name; nameplates untouched. Data from the official Hypixel API, a third-party stats site, or `auto` fallback.
+- **Cheat warning**: when the third-party source returns an Urchin flag, a single local chat line tells you who it is (once per player per session, visible only to you).
 - **Custom MOTD** for the multiplayer list.
 - **Lifecycle binding**: client disconnect kills the upstream session, and vice versa.
 

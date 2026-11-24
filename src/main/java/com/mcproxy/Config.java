@@ -59,6 +59,24 @@ public final class Config {
 
     public Tab tab = new Tab();
 
+    /** 作弊提醒：读第三方站带回的 Urchin 标记，在自己聊天栏提示 */
+    public CheatWarn cheatWarn = new CheatWarn();
+
+    /**
+     * 作弊提醒。独立于 tab.enabled：Tab 不挂数字也能单独用。
+     * 数据只有第三方接口带（urchin_* 字段），官方 /player 没有这组东西。
+     */
+    public static final class CheatWarn {
+        /** 总开关。关掉就完全不查、不提示 */
+        public boolean enabled = true;
+
+        /** any = 有标记就提示；confirmed = 只提示 confirmed_cheater（已确认作弊） */
+        public String minLevel = "any";
+
+        /** 单局最多提示几条，防大服刷屏 */
+        public int maxPerSession = 20;
+    }
+
     /** 服务器列表里显示的 MOTD */
     public Motd motd = new Motd();
 
@@ -265,6 +283,7 @@ public final class Config {
         if (c == null) c = new Config();
         if (c.translate == null) c.translate = new Translate();
         if (c.tab == null) c.tab = new Tab();
+        if (c.cheatWarn == null) c.cheatWarn = new CheatWarn();
         // 补全旧配置缺失的字段
         Config defaults = new Config();
         if (c.motd == null) c.motd = defaults.motd;
@@ -304,6 +323,12 @@ public final class Config {
         if (c.tab.cacheMinutes <= 0) c.tab.cacheMinutes = defaults.tab.cacheMinutes;
         if (c.tab.maxRequestsPerMinute <= 0) c.tab.maxRequestsPerMinute = defaults.tab.maxRequestsPerMinute;
         if (c.tab.concurrency <= 0) c.tab.concurrency = defaults.tab.concurrency;
+
+        // 作弊提醒：旧配置没有 cheatWarn 段时补默认值（enabled 默认 true，别被 Gson 的 false 顶掉）
+        if (c.cheatWarn.minLevel == null || c.cheatWarn.minLevel.isBlank()) {
+            c.cheatWarn.minLevel = defaults.cheatWarn.minLevel;
+        }
+        if (c.cheatWarn.maxPerSession <= 0) c.cheatWarn.maxPerSession = defaults.cheatWarn.maxPerSession;
         return c;
     }
 

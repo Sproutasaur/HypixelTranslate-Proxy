@@ -30,6 +30,7 @@
 - **发消息翻译**：你打的文字翻成 `outgoingTargetLanguage`（默认英文 `en`，可改）再发出去；`/pc`、`/msg` 这类聊天命令只翻正文，命令和玩家名原样。
 - **不浪费 token**：黑话（`gg`/`lol`/`ez`…）、短句、重复刷屏、`[NPC]` 对话、非玩家聊天默认跳过；已是目标语言的不翻。
 - **Tab 挂统计**：玩家名后加 FKDR 等数据，不影响头顶名牌。数据源支持 Hypixel 官方 API / 第三方统计站 / auto 降级。
+- **作弊提醒**：第三方接口带回 Urchin 作弊标记时，在自己聊天栏提示一行，同一玩家每局一次、只有自己可见；跟 Tab 统计互相独立。
 - **服务器列表 MOTD**：可自定义文字、颜色码、显示人数。
 - **断线联动**：客户端断开立刻断上游，上游踢人立刻断本地，不残留挂机。
 
@@ -119,6 +120,25 @@ java -jar target/HypixelTranslate-Proxy.jar
 | `stat` | `bedwars_fkdr` | 也支持 `bedwars_wins` / `bedwars_final_kills` / `bedwars_winstreak` / `skywars_kdr` |
 | `label` / `separator` / `valueColor` | `FKDR` / `" §7\| "` / `§b` | 显示样式 |
 
+### 作弊提醒 `cheatWarn`
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `enabled` | `true` | 总开关；独立于 `tab.enabled`，Tab 不挂数字也能单独当提醒用 |
+| `minLevel` | `any` | `any` = 有标记就提示；`confirmed` = 只提示 `confirmed_cheater` |
+| `maxPerSession` | `20` | 单局最多提示几条，防大服刷屏 |
+
+提示样式（只发到自己聊天栏，不上服务器）：
+
+```
+[Urchin] Steve [作弊确认] confirmed_cheater · legitscaff · Blacklisted
+```
+
+- `confirmed_cheater` → `[作弊确认]`，其它类型 → `[疑似作弊]`，只有黑名单没类型 → `[有标记]`
+- 同一玩家每局只提示一次；`Not_Blacklisted` 不提示
+- **只有第三方接口带这组字段**（`dataSource` 为 `thirdparty`，或 `auto` 落到第三方）；纯 `official` 永远不提示
+- 标记来自社区库 Urchin，不是官方封号记录，只作参考
+
 ### 数据源怎么选
 
 - `official`：Hypixel 官方 `/player` 接口，需要 key，每天 300 次；被 429 后冷却期内不再查。
@@ -173,8 +193,9 @@ java -jar target/HypixelTranslate-Proxy.jar
 4. **翻译吞吐有限**：4 线程 + 单条超时，刷屏时会丢译文（但不阻塞聊天）。
 5. **走公共加速IP 时出口 IP 是共享的**，服务器侧风控可能受影响。
 6. **Tab 统计缓存只在当前会话内**：重连后会用同一份额度重新查一遍。
-7. **无鉴权的本地接口（Ollama 等）只能用于收消息翻译**：`apiKey` 为空时代理不会拦截要发出去的中文，填任意非空字符串可绕过。
-8. **未在真实 Hypixel 上验证**的部分：真实账号登录与 sessionserver、加速IP 实际行为、真实 Tab 结构下的 displayName 效果、长时间挂机稳定性。
+7. **作弊提醒只在第三方数据源下有效**：官方 `/player` 接口没有 Urchin 字段，纯 `official` 模式不会提示。
+8. **无鉴权的本地接口（Ollama 等）只能用于收消息翻译**：`apiKey` 为空时代理不会拦截要发出去的中文，填任意非空字符串可绕过。
+9. **未在真实 Hypixel 上验证**的部分：真实账号登录与 sessionserver、加速IP 实际行为、真实 Tab 结构下的 displayName 效果、长时间挂机稳定性。
 
 ## 常见问题
 

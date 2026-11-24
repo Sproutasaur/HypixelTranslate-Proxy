@@ -60,14 +60,34 @@ public final class TabStats {
     private static final class Queried {
         final String value;
         final Rank rank;
+        /** 第三方带回来的 Urchin 作弊标记，没有就是 null */
+        final CheatFlag flag;
 
         Queried(String value, Rank rank) {
+            this(value, rank, null);
+        }
+
+        Queried(String value, Rank rank, CheatFlag flag) {
             this.value = value;
             this.rank = rank;
+            this.flag = flag;
         }
     }
 
-    private record Cached(String text, Rank rank, Add add, long at) {}
+    /** Urchin 黑名单标记，字段原样保留 */
+    public static final class CheatFlag {
+        public final String status;
+        public final String type;
+        public final String reason;
+
+        public CheatFlag(String status, String type, String reason) {
+            this.status = status == null ? "" : status.trim();
+            this.type = type == null ? "" : type.trim();
+            this.reason = reason == null ? "" : reason.trim();
+        }
+    }
+
+    private record Cached(String text, Rank rank, Add add, long at, CheatFlag flag) {}
 
     private final Config cfg;
     private final TeamRegistry teams;
@@ -104,16 +124,24 @@ public final class TabStats {
     }
 
     private final Sender sender;
-    /** 调试用：往自己聊天栏发一行 */
+    /** 调试用：往自己聊天栏发一行纯文本 */
     private final java.util.function.Consumer<String> chat;
+    /** 带颜色的提示行：直接发 JSON 组件（文案里的 § 码在 text 字段里不生效） */
+    private final java.util.function.Consumer<String> chatJson;
     private final AtomicInteger debugSent = new AtomicInteger();
 
+    /** 本局已经提示过的玩家（按 uuid key 去重），重连即重置 */
+    private final java.util.Set<String> warned = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final AtomicInteger warnSent = new AtomicInteger();
+
     public TabStats(Config cfg, TeamRegistry teams, Sender sender,
-                    java.util.function.Consumer<String> chat) {
+                    java.util.function.Consumer<String> chat,
+                    java.util.function.Consumer<String> chatJson) {
         this.cfg = cfg;
         this.teams = teams;
         this.sender = sender;
         this.chat = chat;
+        this.chatJson = chatJson;
         // 一个玩家一个请求，串行查 80 个人要一分多钟，并发才跟得上 Tab 刷新
         int threads = Math.max(cfg.tab.concurrency, 1);
         this.exec = Executors.newFixedThreadPool(threads, r -> {
@@ -192,6 +220,7 @@ public final class TabStats {
 
     public void onAdds(List<Add> adds) {
         if (adds == null || adds.isEmpty()) return;
+        if (!cfg.tab.enabled && !cheatWarnOn()) return;
 
         String mode = dataSource();
         // 只有"纯官方"模式才硬性要求 key；auto/thirdparty 没 key 也能用第三方
@@ -208,7 +237,10 @@ public final class TabStats {
             Cached c = cache.get(cacheKey);
             if (c != null && fresh(c)) {
                 // "?" 是查不到（nick / 隐藏统计）的缓存：showUnknown 关着就别再往名字上挂
-                if (!"?".equals(c.text) || cfg.tab.showUnknown) assertDisplay(a, c.text, c.rank);
+                if (cfg.tab.enabled && (!"?".equals(c.text) || cfg.tab.showUnknown)) {
+                    assertDisplay(a, c.text, c.rank);
+                }
+                maybeWarn(a, c.flag);
                 continue;
             }
             if (inflight.putIfAbsent(cacheKey, Boolean.TRUE) != null) continue;
@@ -220,7 +252,7 @@ public final class TabStats {
                 continue;
             }
             // 先占个位，不然新人进 Tab 后要干等好几秒才出现统计
-            if (cfg.tab.showPlaceholder) assertDisplay(a, "…", null);
+            if (cfg.tab.enabled && cfg.tab.showPlaceholder) assertDisplay(a, "…", null);
 
             exec.execute(() -> {
                 try {
@@ -244,12 +276,14 @@ public final class TabStats {
                     if (q.value == null) {
                         // 两个源都查不到 = nick / 隐藏统计 / 没这游戏的数据。
                         // 也缓存起来，免得 Tab 每刷一次就为同一个 nick 白查两个源。
-                        cache.put(cacheKey, new Cached("?", q.rank, a, System.currentTimeMillis()));
-                        if (cfg.tab.showUnknown) assertDisplay(a, "?", q.rank);
+                        cache.put(cacheKey, new Cached("?", q.rank, a, System.currentTimeMillis(), q.flag));
+                        if (cfg.tab.enabled && cfg.tab.showUnknown) assertDisplay(a, "?", q.rank);
+                        maybeWarn(a, q.flag);
                         return;
                     }
-                    cache.put(cacheKey, new Cached(q.value, q.rank, a, System.currentTimeMillis()));
-                    assertDisplay(a, q.value, q.rank);
+                    cache.put(cacheKey, new Cached(q.value, q.rank, a, System.currentTimeMillis(), q.flag));
+                    if (cfg.tab.enabled) assertDisplay(a, q.value, q.rank);
+                    maybeWarn(a, q.flag);
                     done.incrementAndGet();
                 } catch (Exception e) {
                     log.debug("[tab] 查询 {} 失败: {}", a.name, e.toString());
@@ -278,6 +312,7 @@ public final class TabStats {
             if (key == null) continue;
             Cached c = cache.get(key);
             if (c == null || c.add == null || !fresh(c)) continue;
+            if (!cfg.tab.enabled) continue;
             if ("?".equals(c.text) && !cfg.tab.showUnknown) continue;
             assertDisplay(c.add, c.text, c.rank);
         }
@@ -358,6 +393,69 @@ public final class TabStats {
                     + " rank=" + (rank == null ? "-" : rank.color));
         }
         sender.send(a.uuid, json);
+    }
+
+    // ------------------------------------------------------------ 作弊提醒
+
+    private boolean cheatWarnOn() {
+        return cfg.cheatWarn != null && cfg.cheatWarn.enabled;
+    }
+
+    /** 同一个人每局只提示一次，且总数不超过 maxPerSession。 */
+    private void maybeWarn(Add a, CheatFlag f) {
+        if (f == null || !cheatWarnOn()) return;
+        String type = f.type == null ? "" : f.type.toLowerCase(java.util.Locale.ROOT);
+        if ("confirmed".equalsIgnoreCase(cfg.cheatWarn.minLevel)
+                && !type.contains("confirmed")) {
+            return;
+        }
+        String key = uuidKey(a.uuid);
+        if (key == null) return;
+        if (!warned.add(key)) return;
+        if (warnSent.incrementAndGet() > Math.max(cfg.cheatWarn.maxPerSession, 1)) return;
+        log.debug("[warn] {} 被 Urchin 标记：{} / {} / {}", a.name, f.status, f.type, f.reason);
+        if (chatJson != null) chatJson.accept(warnJson(a.name, f));
+    }
+
+    /**
+     * 提示行（只发到自己聊天栏）：
+     * [Urchin] Steve [作弊确认] confirmed_cheater · legitscaff · Blacklisted
+     * 注意：1.8 的聊天组件不解析 text 里的 § 码，所以这里拼成 extra 数组、用 color 字段上色。
+     */
+    static String warnJson(String name, CheatFlag f) {
+        List<JsonElement> pieces = new ArrayList<>();
+        addColored(pieces, "§8[§bUrchin§8] ");
+        addColored(pieces, "§f" + ChatText.stripFormatting(name == null ? "" : name));
+        addColored(pieces, " " + cheatTag(f));
+
+        StringBuilder detail = new StringBuilder();
+        if (!f.type.isEmpty()) detail.append("§7").append(f.type);
+        if (!f.reason.isEmpty()) {
+            if (detail.length() > 0) detail.append(" §8· ");
+            detail.append("§7").append(f.reason);
+        }
+        if (!f.status.isEmpty()) {
+            if (detail.length() > 0) detail.append(" §8· ");
+            detail.append("§c").append(f.status);
+        }
+        if (detail.length() > 0) {
+            addColored(pieces, " ");
+            addColored(pieces, detail.toString());
+        }
+
+        JsonArray extra = new JsonArray();
+        for (JsonElement p : pieces) extra.add(p);
+        JsonObject root = new JsonObject();
+        root.addProperty("text", "");
+        root.add("extra", extra);
+        return root.toString();
+    }
+
+    private static String cheatTag(CheatFlag f) {
+        String type = f.type == null ? "" : f.type.toLowerCase(java.util.Locale.ROOT);
+        if (type.contains("confirmed")) return "§4[作弊确认]";
+        if (type.isEmpty()) return "§e[有标记]";
+        return "§c[疑似作弊]";
     }
 
     /** 把带 § 码的字符串拆成若干"带 color 字段"的小组件 */
@@ -631,11 +729,27 @@ public final class TabStats {
         if ("NICK".equalsIgnoreCase(status)) return new Queried(null, null);
         if (!"ok".equalsIgnoreCase(status)) return null;
 
+        CheatFlag flag = cheatFlagOf(hy);
         String field = thirdPartyField(cfg.tab.stat);
-        if (field == null) return new Queried(null, null);
+        if (field == null) return new Queried(null, null, flag);
         JsonElement v = hy.get(field);
-        if (v == null || !v.isJsonPrimitive() || v.getAsString().isBlank()) return new Queried(null, null);
-        return new Queried(v.getAsString(), null);
+        if (v == null || !v.isJsonPrimitive() || v.getAsString().isBlank()) {
+            return new Queried(null, null, flag);
+        }
+        return new Queried(v.getAsString(), null, flag);
+    }
+
+    /** 只有 Blacklisted 才当标记；Not_Blacklisted / 缺字段一律 null。 */
+    static CheatFlag cheatFlagOf(JsonObject hypixel) {
+        if (hypixel == null) return null;
+        String black = fieldText(hypixel, "urchin_blacklist_status");
+        if (!"Blacklisted".equalsIgnoreCase(black)) return null;
+        return new CheatFlag(black, fieldText(hypixel, "urchin_type"), fieldText(hypixel, "urchin_reason"));
+    }
+
+    private static String fieldText(JsonObject o, String key) {
+        JsonElement e = o.get(key);
+        return e != null && e.isJsonPrimitive() ? e.getAsString() : "";
     }
 
     /** 第三方只保证 FKDR；其它 stat 没有对应字段，就当查不到 */

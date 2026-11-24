@@ -66,7 +66,8 @@ public final class Session {
         // 译文晚到会单独补一行，不会丢。
         this.outbox = new ChatOutbox(client, cfg.translate.appendWaitMs);
         this.teams = new TeamRegistry();
-        this.tabStats = new TabStats(cfg, teams, this::sendTabDisplayName, this::sendSelfChat);
+        this.tabStats = new TabStats(cfg, teams, this::sendTabDisplayName, this::sendSelfChat,
+                this::sendSelfChatJson);
         client.closeFuture().addListener(f -> closeAll());
     }
 
@@ -108,6 +109,16 @@ public final class Session {
     }
 
     /** 只在调试时用：往自己的聊天栏发一行，方便截图看诊断。 */
+    /** 直接发一段 JSON 聊天组件（带颜色的提示行走这里） */
+    public void sendSelfChatJson(String json) {
+        if (!client.isActive()) return;
+        ByteBuf out = client.alloc().buffer();
+        VarInt.write(out, Ids.PLAY_CHAT_CLIENTBOUND);
+        Buf.writeString(out, json);
+        out.writeByte(Ids.CHAT_POSITION_CHAT);
+        client.writeAndFlush(out);
+    }
+
     public void sendSelfChat(String text) {
         if (!client.isActive()) return;
         ByteBuf out = client.alloc().buffer();
