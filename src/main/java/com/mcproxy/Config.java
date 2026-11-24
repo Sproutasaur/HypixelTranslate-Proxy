@@ -59,11 +59,8 @@ public final class Config {
 
     public Tab tab = new Tab();
 
-    /** 作弊提醒：读第三方站带回的 Urchin 标记，在自己聊天栏提示 */
-    public CheatWarn cheatWarn = new CheatWarn();
-
     /**
-     * 作弊提醒。独立于 tab.enabled：Tab 不挂数字也能单独用。
+     * 作弊提醒（挂在 tab 下面，必须 tab.enabled = true 才生效）。
      * 数据只有第三方接口带（urchin_* 字段），官方 /player 没有这组东西。
      */
     public static final class CheatWarn {
@@ -138,6 +135,9 @@ public final class Config {
 
         /** 查不到数据（昵称玩家/隐藏统计）时是否仍显示一个占位 */
         public boolean showUnknown = false;
+
+        /** 作弊提醒，属于 Tab 模块：tab.enabled = false 时整块不生效 */
+        public CheatWarn cheatWarn = new CheatWarn();
 
         /**
          * 名字前面是否补 [VIP] [MVP+] 这类段位标签。
@@ -283,7 +283,6 @@ public final class Config {
         if (c == null) c = new Config();
         if (c.translate == null) c.translate = new Translate();
         if (c.tab == null) c.tab = new Tab();
-        if (c.cheatWarn == null) c.cheatWarn = new CheatWarn();
         // 补全旧配置缺失的字段
         Config defaults = new Config();
         if (c.motd == null) c.motd = defaults.motd;
@@ -325,10 +324,13 @@ public final class Config {
         if (c.tab.concurrency <= 0) c.tab.concurrency = defaults.tab.concurrency;
 
         // 作弊提醒：旧配置没有 cheatWarn 段时补默认值（enabled 默认 true，别被 Gson 的 false 顶掉）
-        if (c.cheatWarn.minLevel == null || c.cheatWarn.minLevel.isBlank()) {
-            c.cheatWarn.minLevel = defaults.cheatWarn.minLevel;
+        if (c.tab.cheatWarn == null) c.tab.cheatWarn = defaults.tab.cheatWarn;
+        if (c.tab.cheatWarn.minLevel == null || c.tab.cheatWarn.minLevel.isBlank()) {
+            c.tab.cheatWarn.minLevel = defaults.tab.cheatWarn.minLevel;
         }
-        if (c.cheatWarn.maxPerSession <= 0) c.cheatWarn.maxPerSession = defaults.cheatWarn.maxPerSession;
+        if (c.tab.cheatWarn.maxPerSession <= 0) {
+            c.tab.cheatWarn.maxPerSession = defaults.tab.cheatWarn.maxPerSession;
+        }
         return c;
     }
 

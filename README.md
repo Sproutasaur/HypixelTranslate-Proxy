@@ -30,7 +30,7 @@
 - **发消息翻译**：你打的文字翻成 `outgoingTargetLanguage`（默认英文 `en`，可改）再发出去；`/pc`、`/msg` 这类聊天命令只翻正文，命令和玩家名原样。
 - **不浪费 token**：黑话（`gg`/`lol`/`ez`…）、短句、重复刷屏、`[NPC]` 对话、非玩家聊天默认跳过；已是目标语言的不翻。
 - **Tab 挂统计**：玩家名后加 FKDR 等数据，不影响头顶名牌。数据源支持 Hypixel 官方 API / 第三方统计站 / auto 降级。
-- **作弊提醒**：第三方接口带回 Urchin 作弊标记时，在自己聊天栏提示一行，同一玩家每局一次、只有自己可见；跟 Tab 统计互相独立。
+- **作弊提醒**：第三方接口带回 Urchin 作弊标记时，在自己聊天栏提示一行（挂在 Tab 模块下，`tab.enabled=true` 才生效），同一玩家每局一次、只有自己可见。
 - **服务器列表 MOTD**：可自定义文字、颜色码、显示人数。
 - **断线联动**：客户端断开立刻断上游，上游踢人立刻断本地，不残留挂机。
 
@@ -120,11 +120,13 @@ java -jar target/HypixelTranslate-Proxy.jar
 | `stat` | `bedwars_fkdr` | 也支持 `bedwars_wins` / `bedwars_final_kills` / `bedwars_winstreak` / `skywars_kdr` |
 | `label` / `separator` / `valueColor` | `FKDR` / `" §7\| "` / `§b` | 显示样式 |
 
-### 作弊提醒 `cheatWarn`
+### 作弊提醒 `tab.cheatWarn`
+
+属于 Tab 模块，**必须 `tab.enabled = true`** 才生效（Tab 关掉就完全不查、不提示）。
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `enabled` | `true` | 总开关；独立于 `tab.enabled`，Tab 不挂数字也能单独当提醒用 |
+| `enabled` | `true` | Tab 内的开关；`tab.enabled=false` 时整块不生效 |
 | `minLevel` | `any` | `any` = 有标记就提示；`confirmed` = 只提示 `confirmed_cheater` |
 | `maxPerSession` | `20` | 单局最多提示几条，防大服刷屏 |
 
@@ -136,7 +138,9 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 - `confirmed_cheater` → `[作弊确认]`，其它类型 → `[疑似作弊]`，只有黑名单没类型 → `[有标记]`
 - 同一玩家每局只提示一次；`Not_Blacklisted` 不提示
-- **只有第三方接口带这组字段**（`dataSource` 为 `thirdparty`，或 `auto` 落到第三方）；纯 `official` 永远不提示
+- 换局（Tab 里一次大换血、认识的名字不到四分之一）时自动重置去重和条数上限，不是整个连接只给 20 条
+- **只有第三方接口带这组字段**：`dataSource = thirdparty`，或 `auto` 且官方那一路没查到（没 key / 429 / 没数据 / 当日额度用完）才落到第三方；纯 `official` 永远不提示
+- 提示行是本地直接写进客户端的，**不经过翻译管线**，不会被翻成别的语言，也不发到服务器
 - 标记来自社区库 Urchin，不是官方封号记录，只作参考
 
 ### 数据源怎么选

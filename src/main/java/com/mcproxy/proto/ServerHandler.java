@@ -157,8 +157,7 @@ public final class ServerHandler extends ChannelInboundHandlerAdapter {
         java.util.List<com.mcproxy.tab.TabStats.Add> tabAdds = null;
         java.util.List<byte[]> tabUpdates = null;
 
-        boolean cheatWarn = cfg.cheatWarn != null && cfg.cheatWarn.enabled;
-        if (cfg.debugTab || cfg.tab.enabled || cheatWarn) {
+        if (cfg.debugTab || cfg.tab.enabled) {
             ByteBuf d = buf.duplicate();
             try {
                 int id = VarInt.read(d);
@@ -167,12 +166,12 @@ public final class ServerHandler extends ChannelInboundHandlerAdapter {
                     // 抄一份队伍前缀：挂统计要下发 displayName，下发后客户端就不再套队伍了，
                     // 名字颜色和队伍标签得自己补回去
                     session.teams().handle(d);
-                } else if ((cfg.tab.enabled || cheatWarn) && id == Ids.PLAY_PLAYER_LIST_ITEM) {
+                } else if (cfg.tab.enabled && id == Ids.PLAY_PLAYER_LIST_ITEM) {
                     ByteBuf peek = d.duplicate();
                     int action = VarInt.read(peek);
                     if (action == 0) {
                         tabAdds = com.mcproxy.tab.TabStats.parseAdds(d);
-                    } else if (action == 3 && cfg.tab.enabled) {
+                    } else if (action == 3) {
                         // 上游自己改显示名会把我们挂的统计顶掉，记下来待会儿补回去
                         tabUpdates = com.mcproxy.tab.TabStats.parseDisplayUpdate(d);
                     }

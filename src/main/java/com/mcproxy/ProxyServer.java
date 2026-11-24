@@ -78,8 +78,9 @@ public final class ProxyServer {
                     ? cfg.translate.targetLanguage + " via " + cfg.translate.model : "关闭"));
             System.out.println("  Tab 统计:  " + (cfg.tab.enabled
                     ? cfg.tab.stat + " · 数据源 " + cfg.tab.dataSource : "关闭"));
-            System.out.println("  作弊提醒:  " + (cfg.cheatWarn != null && cfg.cheatWarn.enabled
-                    ? cfg.cheatWarn.minLevel + " · 单局最多 " + cfg.cheatWarn.maxPerSession + " 条"
+            System.out.println("  作弊提醒:  " + (cfg.tab.enabled && cfg.tab.cheatWarn != null
+                    && cfg.tab.cheatWarn.enabled
+                    ? cfg.tab.cheatWarn.minLevel + " · 单局最多 " + cfg.tab.cheatWarn.maxPerSession + " 条"
                     : "关闭"));
             System.out.println();
 

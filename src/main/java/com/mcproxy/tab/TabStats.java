@@ -130,9 +130,11 @@ public final class TabStats {
     private final java.util.function.Consumer<String> chatJson;
     private final AtomicInteger debugSent = new AtomicInteger();
 
-    /** 本局已经提示过的玩家（按 uuid key 去重），重连即重置 */
+    /** 本局已经提示过的玩家（按 uuid key 去重），换局或重连时清空 */
     private final java.util.Set<String> warned = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final AtomicInteger warnSent = new AtomicInteger();
+    /** 上一轮 Tab 里的人名，用来判断"换局"（大换血时重置提示计数） */
+    private final java.util.Set<String> roundNames = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     public TabStats(Config cfg, TeamRegistry teams, Sender sender,
                     java.util.function.Consumer<String> chat,
@@ -220,12 +222,13 @@ public final class TabStats {
 
     public void onAdds(List<Add> adds) {
         if (adds == null || adds.isEmpty()) return;
-        if (!cfg.tab.enabled && !cheatWarnOn()) return;
+        if (!cfg.tab.enabled) return;
 
         String mode = dataSource();
         // 只有"纯官方"模式才硬性要求 key；auto/thirdparty 没 key 也能用第三方
         if ("official".equals(mode) && !hasOfficialKey()) return;
 
+        maybeNewRound(adds);
         debugLog("=== 玩家列表 " + adds.size() + " 人 | " + dataSource() + " | " + teams.stats());
 
         for (Add a : adds) {
@@ -397,22 +400,46 @@ public final class TabStats {
 
     // ------------------------------------------------------------ 作弊提醒
 
+    /**
+     * 换局判定：一次 Tab 里有 8 人以上、且认识的名字不到四分之一，就当"大换血"= 新一局，
+     * 把提示去重集合和计数清空。否则一局刷满上限后，后面几局会一直静音。
+     */
+    private void maybeNewRound(List<Add> adds) {
+        if (adds.size() < 8) return;
+        int known = 0;
+        for (Add a : adds) {
+            if (a.name != null && roundNames.contains(a.name.toLowerCase(java.util.Locale.ROOT))) known++;
+        }
+        if (known * 4 <= adds.size() && (!warned.isEmpty() || warnSent.get() > 0)) {
+            warned.clear();
+            warnSent.set(0);
+            log.debug("[warn] 检测到换局（{} 人里只认识 {} 个），重置提示计数", adds.size(), known);
+        }
+        roundNames.clear();
+        for (Add a : adds) {
+            if (a.name != null && !a.name.isEmpty()) {
+                roundNames.add(a.name.toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+    }
+
     private boolean cheatWarnOn() {
-        return cfg.cheatWarn != null && cfg.cheatWarn.enabled;
+        return cfg.tab.enabled && cfg.tab.cheatWarn != null && cfg.tab.cheatWarn.enabled;
     }
 
     /** 同一个人每局只提示一次，且总数不超过 maxPerSession。 */
     private void maybeWarn(Add a, CheatFlag f) {
         if (f == null || !cheatWarnOn()) return;
         String type = f.type == null ? "" : f.type.toLowerCase(java.util.Locale.ROOT);
-        if ("confirmed".equalsIgnoreCase(cfg.cheatWarn.minLevel)
+        if ("confirmed".equalsIgnoreCase(cfg.tab.cheatWarn.minLevel)
                 && !type.contains("confirmed")) {
             return;
         }
         String key = uuidKey(a.uuid);
         if (key == null) return;
         if (!warned.add(key)) return;
-        if (warnSent.incrementAndGet() > Math.max(cfg.cheatWarn.maxPerSession, 1)) return;
+        if (warnSent.get() >= Math.max(cfg.tab.cheatWarn.maxPerSession, 1)) return;
+        warnSent.incrementAndGet();
         log.debug("[warn] {} 被 Urchin 标记：{} / {} / {}", a.name, f.status, f.type, f.reason);
         if (chatJson != null) chatJson.accept(warnJson(a.name, f));
     }
