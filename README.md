@@ -79,7 +79,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 ## 配置
 
-`config.json` 首次运行时自动生成。下面只列这份配置里真实存在的字段，其余字段代码里有默认值，完整清单见 `src/main/resources/config.default.json`。
+`config.json` 首次运行时由 jar 内置模板生成（就是下表这些字段）。没写的字段代码里有默认值，不写也能跑。
 
 ### 基础
 

@@ -1,0 +1,46 @@
+{
+  // 游戏里「直接连接」填 127.0.0.1:25565
+  "listenPort": 25565,
+
+  // 服务器列表 MOTD：支持 § 颜色码和 \n 换行；online/max 只影响显示，实际还是一账号一会话
+  "motd": {
+    "text": "§aHypixelTranslate-Proxy §7· §b本地翻译代理",
+    "online": 1,
+    "max": 1
+  },
+
+  // 上游线路：用加速器就填加速器给的 IP 和端口
+  "upstreamHost": "mc.hypixel.net",
+  "upstreamPort": 25565,
+
+  "translate": {
+    "apiKey": "",                   // DeepSeek 密钥，不填就不翻译
+    "model": "deepseek-flash",
+    "appendWaitMs": 250,            // 原文最多压这么久等译文（毫秒），调大更整齐、调小更跟手
+    "translateOutgoing": true,      // 你打的中文翻成英文再发出去，队友能看懂
+    "outgoingTargetLanguage": "en", // 发出去的话翻成什么语言
+    "onlyPlayerChat": true,         // 只翻玩家聊天，系统提示（You are AFK / +10 EXP）原样
+    "skipShortMessages": 10,        // 去掉名字后字母数 ≤ 10 的短句不翻（nice / gj），0 = 关
+    "dedupSeconds": 60,             // 同一句 60 秒内重复出现就不再翻，0 = 关
+    "skipPrefixes": ["[NPC]"],      // 这些开头的消息不翻；Tab 里这类 NPC 也不查统计
+    "skipWords": [
+      "gg", "ggwp", "wp", "ez", "ezpz", "l", "ll", "lol", "lmao", "lmfao", "rofl",
+      "xd", "omg", "kek", "kekw", "rip", "gl", "hf", "glhf", "gf",
+      "hi", "hey", "yo", "sup", "ty", "thx", "tyt", "brb", "afk", "gtg",
+      "ok", "okay", "nvm", "o7", "salute", "f", "ff", "w", "pog"
+    ]
+  },
+
+  "tab": {
+    // Tab 玩家名后面挂统计，不想用就把 enabled 改 false
+    "enabled": false,
+    "hypixelApiKey": "",             // 游戏里输 /api new 生成；额度用完就换
+    // 数据源：official=只用 Hypixel 官方 ；thirdparty=只用第三方统计站 ；auto=官方不行就自动切第三方
+    "dataSource": "auto",
+    "thirdPartyBaseUrl": "https://api.khadow.lol",  // 第三方接口，不用改
+    "stat": "bedwars_fkdr",         // 也能填 bedwars_wins / bedwars_final_kills / skywars_kdr
+    "label": "FKDR",                // 数字后面那个标签文字
+    "separator": " §7| ",           // 名字和统计之间的分隔
+    "valueColor": "§b"              // 数字颜色：§b 青 §e 黄 §a 绿 §c 红 §6 金
+  }
+}
