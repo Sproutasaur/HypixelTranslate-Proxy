@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -56,21 +57,38 @@ public final class TabStats {
     /** 从 Hypixel API 拿到的段位样式（Tab 名字前缀 + 名字颜色） */
     private record Rank(String prefix, String color) {}
 
-    /** 查回来的结果：数值 + 段位。数值为 null 表示这个玩家没这项数据 */
+    /** 数据来自哪一路，决定这份缓存还需不需要补查 Urchin */
+    private enum Source { OFFICIAL, THIRD_PARTY }
+
+    /** 查回来的结果：数值 + 段位 + 来源。数值为 null 表示这个玩家没这项数据 */
     private static final class Queried {
         final String value;
         final Rank rank;
         /** 第三方带回来的 Urchin 作弊标记，没有就是 null */
         final CheatFlag flag;
+        final Source source;
+        /** 这一次是否已经从第三方拿到 Urchin 结论（Not_Blacklisted 也算查过） */
+        final boolean urchinChecked;
+        /** 本该查的数据源是否都查到了；false = 中途有网络/额度失败，别当"查不到"缓存 */
+        final boolean complete;
 
+        /** 官方结果：不带 Urchin 字段 */
         Queried(String value, Rank rank) {
-            this(value, rank, null);
+            this(value, rank, null, Source.OFFICIAL, false, true);
         }
 
+        /** 第三方结果：一次请求就把 Urchin 一起带回来了 */
         Queried(String value, Rank rank, CheatFlag flag) {
+            this(value, rank, flag, Source.THIRD_PARTY, true, true);
+        }
+
+        Queried(String value, Rank rank, CheatFlag flag, Source source, boolean urchinChecked, boolean complete) {
             this.value = value;
             this.rank = rank;
             this.flag = flag;
+            this.source = source;
+            this.urchinChecked = urchinChecked;
+            this.complete = complete;
         }
     }
 
@@ -87,7 +105,8 @@ public final class TabStats {
         }
     }
 
-    private record Cached(String text, Rank rank, Add add, long at, CheatFlag flag) {}
+    private record Cached(String text, Rank rank, Add add, long at, CheatFlag flag,
+                          boolean urchinChecked, boolean fromOfficial) {}
 
     private final Config cfg;
     private final TeamRegistry teams;
@@ -136,6 +155,10 @@ public final class TabStats {
     /** 上一轮 Tab 里的人名，用来判断"换局"（大换血时重置提示计数） */
     private final java.util.Set<String> roundNames = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    /** 会话结束时把线程和定时任务一起停掉，避免重连一次漏一组后台任务 */
+    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final java.util.concurrent.ScheduledExecutorService ticker;
+
     public TabStats(Config cfg, TeamRegistry teams, Sender sender,
                     java.util.function.Consumer<String> chat,
                     java.util.function.Consumer<String> chatJson) {
@@ -154,17 +177,16 @@ public final class TabStats {
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
         // 每隔几秒把上一轮没排上队的人捞出来重试，额度一恢复就能补上
-        java.util.concurrent.ScheduledExecutorService ticker =
-                Executors.newSingleThreadScheduledExecutor(r -> {
-                    Thread t = new Thread(r, "tabstats-retry");
-                    t.setDaemon(true);
-                    return t;
-                });
+        this.ticker = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "tabstats-retry");
+            t.setDaemon(true);
+            return t;
+        });
         ticker.scheduleWithFixedDelay(this::drainRetry, 2, 2, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     private void drainRetry() {
-        if (retry.isEmpty()) return;
+        if (closed.get() || retry.isEmpty()) return;
         List<Add> batch;
         synchronized (retry) {
             if (retry.isEmpty()) return;
@@ -221,6 +243,7 @@ public final class TabStats {
     // ---------------------------------------------------------------- 处理
 
     public void onAdds(List<Add> adds) {
+        if (closed.get()) return;
         if (adds == null || adds.isEmpty()) return;
         if (!cfg.tab.enabled) return;
 
@@ -232,6 +255,7 @@ public final class TabStats {
         debugLog("=== 玩家列表 " + adds.size() + " 人 | " + dataSource() + " | " + teams.stats());
 
         for (Add a : adds) {
+            if (closed.get()) return;
             if (npcLike(a)) continue;        // Tab 里的 NPC 也不挂统计、不查接口
             String cacheKey = uuidKey(a.uuid);
             String apiUuid = hexUuid(a.uuid);
@@ -243,7 +267,13 @@ public final class TabStats {
                 if (cfg.tab.enabled && (!"?".equals(c.text) || cfg.tab.showUnknown)) {
                     assertDisplay(a, c.text, c.rank);
                 }
-                maybeWarn(a, c.flag);
+                // auto 下官方额度已经用完时，官方缓存里没有 Urchin，得单独补查一次第三方。
+                // 否则同一个人会在整个缓存期内一直"有统计但永远不提示作弊"。
+                if (cheatWarnOn() && !c.urchinChecked && "auto".equals(mode) && !officialAvailableNow()) {
+                    requestUrchin(a, cacheKey);
+                } else {
+                    maybeWarn(a, c.urchinChecked ? c.flag : null);
+                }
                 continue;
             }
             if (inflight.putIfAbsent(cacheKey, Boolean.TRUE) != null) continue;
@@ -257,44 +287,96 @@ public final class TabStats {
             // 先占个位，不然新人进 Tab 后要干等好几秒才出现统计
             if (cfg.tab.enabled && cfg.tab.showPlaceholder) assertDisplay(a, "…", null);
 
+            try {
+                exec.execute(() -> {
+                    try {
+                        if (closed.get()) return;
+                        // 官方冷却中（限速/当日额度用完）时，纯官方模式才停；
+                        // auto 模式要照常走第三方，不然额度一满就"只有大厅有统计"。
+                        if (System.currentTimeMillis() < cooldownUntil && "official".equals(mode)) {
+                            return;
+                        }
+                        if (!takeBudget(1500)) {
+                            // 额度一时没到不能就这么算了：排到重试队列，等令牌补上再查
+                            log.debug("[tab] 额度未轮到，{} 稍后重试", a.name);
+                            enqueueRetry(cacheKey, a);
+                            return;
+                        }
+                        Queried q = fetchStat(apiUuid, a.name);
+                        if (q == null) {
+                            enqueueRetry(cacheKey, a);
+                            return;
+                        }
+                        retryTries.remove(cacheKey);
+                        if (q.value == null) {
+                            // 本该查的那一路中途失败了（比如官方没数据、第三方正好断网），
+                            // 不能当"两个源都查不到"缓存 3 小时，放回重试队列。
+                            if (!q.complete) {
+                                enqueueRetry(cacheKey, a);
+                                return;
+                            }
+                            // 确认两个源都没有 = nick / 隐藏统计 / 没这游戏的数据。
+                            // 也缓存起来，免得 Tab 每刷一次就为同一个 nick 白查两个源。
+                            cache.put(cacheKey, new Cached("?", q.rank, a, System.currentTimeMillis(),
+                                    q.flag, q.urchinChecked, q.source == Source.OFFICIAL));
+                            if (cfg.tab.enabled && cfg.tab.showUnknown) assertDisplay(a, "?", q.rank);
+                            maybeWarn(a, q.flag);
+                            return;
+                        }
+                        cache.put(cacheKey, new Cached(q.value, q.rank, a, System.currentTimeMillis(),
+                                q.flag, q.urchinChecked, q.source == Source.OFFICIAL));
+                        if (cfg.tab.enabled) assertDisplay(a, q.value, q.rank);
+                        maybeWarn(a, q.flag);
+                        done.incrementAndGet();
+                    } catch (Exception e) {
+                        log.debug("[tab] 查询 {} 失败: {}", a.name, e.toString());
+                        noteFailure(e.getClass().getSimpleName() + ": " + e.getMessage());
+                    } finally {
+                        inflight.remove(cacheKey);
+                    }
+                });
+            } catch (java.util.concurrent.RejectedExecutionException e) {
+                // 会话已关闭 / 线程池已停：撤销占位，别留一个永远不回来的 inflight
+                inflight.remove(cacheKey);
+            }
+        }
+    }
+
+    /**
+     * 官方已经在用（有 key 且不在 429 冷却里）→ auto 不会落到第三方，
+     * 这时候没必要额外发一次第三方请求。
+     */
+    private boolean officialAvailableNow() {
+        return hasOfficialKey() && System.currentTimeMillis() >= cooldownUntil;
+    }
+
+    /**
+     * 官方缓存补查 Urchin：只查第三方、不重新打官方，查到后只更新作弊标记，
+     * 统计数字和段位沿用原来官方那份。
+     */
+    private void requestUrchin(Add a, String cacheKey) {
+        if (closed.get()) return;
+        if (inflight.putIfAbsent(cacheKey, Boolean.TRUE) != null) return;
+        try {
             exec.execute(() -> {
                 try {
-                    // 官方冷却中（限速/当日额度用完）时，纯官方模式才停；
-                    // auto 模式要照常走第三方，不然额度一满就"只有大厅有统计"。
-                    if (System.currentTimeMillis() < cooldownUntil && "official".equals(mode)) {
-                        return;
-                    }
-                    if (!takeBudget(1500)) {
-                        // 额度一时没到不能就这么算了：排到重试队列，等令牌补上再查
-                        log.debug("[tab] 额度未轮到，{} 稍后重试", a.name);
-                        enqueueRetry(cacheKey, a);
-                        return;
-                    }
-                    Queried q = fetchStat(apiUuid, a.name);
-                    if (q == null) {
-                        enqueueRetry(cacheKey, a);
-                        return;
-                    }
-                    retryTries.remove(cacheKey);
-                    if (q.value == null) {
-                        // 两个源都查不到 = nick / 隐藏统计 / 没这游戏的数据。
-                        // 也缓存起来，免得 Tab 每刷一次就为同一个 nick 白查两个源。
-                        cache.put(cacheKey, new Cached("?", q.rank, a, System.currentTimeMillis(), q.flag));
-                        if (cfg.tab.enabled && cfg.tab.showUnknown) assertDisplay(a, "?", q.rank);
-                        maybeWarn(a, q.flag);
-                        return;
-                    }
-                    cache.put(cacheKey, new Cached(q.value, q.rank, a, System.currentTimeMillis(), q.flag));
-                    if (cfg.tab.enabled) assertDisplay(a, q.value, q.rank);
+                    if (closed.get()) return;
+                    if (!takeBudget(1500)) return;   // Tab 下次刷新还会再问，不必堆重试
+                    Queried q = fetchThirdParty(a.name);
+                    if (q == null || !q.urchinChecked) return;
+                    Cached cur = cache.get(cacheKey);
+                    if (cur == null) return;         // 已经被换掉/清掉了，以当时那份为准
+                    cache.put(cacheKey, new Cached(cur.text, cur.rank, cur.add, cur.at,
+                            q.flag, true, cur.fromOfficial));
                     maybeWarn(a, q.flag);
-                    done.incrementAndGet();
                 } catch (Exception e) {
-                    log.debug("[tab] 查询 {} 失败: {}", a.name, e.toString());
-                    noteFailure(e.getClass().getSimpleName() + ": " + e.getMessage());
+                    log.debug("[tab] 补查 Urchin 失败 {}: {}", a.name, e.toString());
                 } finally {
                     inflight.remove(cacheKey);
                 }
             });
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            inflight.remove(cacheKey);
         }
     }
 
@@ -661,7 +743,14 @@ public final class TabStats {
             Queried official = hasOfficialKey() ? fetchOfficial(undashedUuid, name) : null;
             if (official != null && official.value != null) return official;
             Queried third = fetchThirdParty(name);
-            return third != null ? third : official;
+            if (third != null) return third;
+            // 官方查到了玩家但没这项数据，第三方这一趟又失败了：
+            // 返回 official 但标记 incomplete，让调用方走重试，不要缓存成"查不到"。
+            if (official != null) {
+                return new Queried(official.value, official.rank, official.flag,
+                        Source.OFFICIAL, false, false);
+            }
+            return null;
         }
         return fetchOfficial(undashedUuid, name);
     }
@@ -753,17 +842,19 @@ public final class TabStats {
         String status = hy.has("status") && hy.get("status").isJsonPrimitive()
                 ? hy.get("status").getAsString() : "";
         // status=NICK：IGN 不存在/昵称；error：服务侧失败，交给重试队列
-        if ("NICK".equalsIgnoreCase(status)) return new Queried(null, null);
+        if ("NICK".equalsIgnoreCase(status)) {
+            return new Queried(null, null, null, Source.THIRD_PARTY, true, true);
+        }
         if (!"ok".equalsIgnoreCase(status)) return null;
 
         CheatFlag flag = cheatFlagOf(hy);
         String field = thirdPartyField(cfg.tab.stat);
-        if (field == null) return new Queried(null, null, flag);
+        if (field == null) return new Queried(null, null, flag, Source.THIRD_PARTY, true, true);
         JsonElement v = hy.get(field);
         if (v == null || !v.isJsonPrimitive() || v.getAsString().isBlank()) {
-            return new Queried(null, null, flag);
+            return new Queried(null, null, flag, Source.THIRD_PARTY, true, true);
         }
-        return new Queried(v.getAsString(), null, flag);
+        return new Queried(v.getAsString(), null, flag, Source.THIRD_PARTY, true, true);
     }
 
     /** 只有 Blacklisted 才当标记；Not_Blacklisted / 缺字段一律 null。 */
@@ -974,6 +1065,15 @@ public final class TabStats {
     }
 
     public void shutdown() {
+        if (!closed.compareAndSet(false, true)) return;
+        // 先停调度器：它每 2 秒还会调 drainRetry，只停查询池会留下一个空转线程
+        ticker.shutdownNow();
         exec.shutdownNow();
+        retry.clear();
+        retryTries.clear();
+        inflight.clear();
+        warned.clear();
+        roundNames.clear();
+        cache.clear();
     }
 }

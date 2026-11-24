@@ -106,6 +106,7 @@ Only the third-party stats site returns the Urchin pair (`urchin_blacklist_statu
 - `dataSource = "thirdparty"` — every lookup goes to the third-party site; any flag is shown.
 - `dataSource = "auto"` — only for lookups the official API could not answer (no key, 429 cooldown, not found, 300/day quota used up). **While the official quota is still available and the official API answers, that data carries no Urchin fields, so nothing is shown.**
 - `dataSource = "official"` — never shown: the official `/player` endpoint has no Urchin fields.
+- In `auto`, once the official quota is gone, players previously cached from the official API get one extra third-party lookup just for the Urchin flag — the cache does not suppress warnings.
 
 | Key | Default | Meaning |
 |---|---|---|

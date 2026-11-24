@@ -11,7 +11,7 @@ public final class Main {
     public static void main(String[] args) throws Exception {
         Path configPath = Paths.get(args.length > 0 ? args[0] : "config.json");
 
-        System.out.println("[main] HypixelTranslate-Proxy · MC 1.8.9 · build 1125b · v1.1.0");
+        System.out.println("[main] HypixelTranslate-Proxy · MC 1.8.9 · build 1125c · v1.1.1");
 
         Config cfg = Config.load(configPath);
 
@@ -31,13 +31,20 @@ public final class Main {
         // Tab 状态直接打在启动日志里：不显示统计时一眼就知道是没开、没填 key 还是配置被覆盖了
         if (!cfg.tab.enabled) {
             System.out.println("[tab] 未开启（config 里 tab.enabled = false）");
-        } else if (cfg.tab.hypixelApiKey == null || cfg.tab.hypixelApiKey.isBlank()) {
-            System.out.println("[warn] tab.enabled 已开，但 hypixelApiKey 是空的，不会查任何数据");
         } else {
-            System.out.println("[tab] 已开启 · " + cfg.tab.stat + " · 并发 " + cfg.tab.concurrency
-                    + " · 上限 " + cfg.tab.maxRequestsPerMinute + "/分钟 · key "
-                    + cfg.tab.hypixelApiKey.trim().substring(0,
-                        Math.min(6, cfg.tab.hypixelApiKey.trim().length())) + "…");
+            boolean hasKey = cfg.tab.hypixelApiKey != null && !cfg.tab.hypixelApiKey.isBlank();
+            String mode = cfg.tab.dataSource == null ? "auto" : cfg.tab.dataSource.trim().toLowerCase();
+            if ("official".equals(mode) && !hasKey) {
+                // 纯官方模式没 key 才是真的查不了；auto/thirdparty 没 key 会走第三方，别误报
+                System.out.println("[warn] tab.dataSource = official 但 hypixelApiKey 是空的，不会查任何数据；"
+                        + "想不填 key 就用 auto 或 thirdparty");
+            } else {
+                System.out.println("[tab] 已开启 · " + cfg.tab.stat + " · 数据源 " + mode
+                        + (hasKey ? " · key " + cfg.tab.hypixelApiKey.trim().substring(0,
+                            Math.min(6, cfg.tab.hypixelApiKey.trim().length())) + "…" : " · 无官方 key（走第三方）")
+                        + " · 并发 " + cfg.tab.concurrency
+                        + " · 上限 " + cfg.tab.maxRequestsPerMinute + "/分钟");
+            }
         }
 
         // 作弊提醒挂在 Tab 下：Tab 关着就整块不生效；只有走第三方那一路才有 Urchin 字段

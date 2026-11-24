@@ -143,6 +143,7 @@ java -jar target/HypixelTranslate-Proxy.jar
   - `dataSource = thirdparty`：所有查询都走第三方统计站，有标记就提示；
   - `dataSource = auto`：官方那一路查不到时才落到第三方（没 key / 429 冷却 / 没数据 / 当日 300 次额度用完）。**官方额度还没用完、官方正常返回时，走的是官方数据，不含 Urchin 字段，也就不会提示**
   - `dataSource = official`：永远不提示（官方 `/player` 接口没有 `urchin_blacklist_status` / `urchin_type` / `urchin_reason`）
+- `auto` 下官方额度耗尽后，之前被官方缓存过的玩家也会单独补查一次第三方补上 Urchin，不会因为缓存一直漏提示
 - 提示行是本地直接写进客户端的，**不经过翻译管线**，不会被翻成别的语言，也不发到服务器
 - 标记来自社区库 Urchin，不是官方封号记录，只作参考
 

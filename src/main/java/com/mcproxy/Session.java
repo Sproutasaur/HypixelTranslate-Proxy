@@ -284,6 +284,9 @@ public final class Session {
      */
     public void closeAll() {
         if (!closed.compareAndSet(false, true)) return;
+        // Tab 查询线程和每 2 秒的重试调度器都属于这个会话，断线必须一起停：
+        // 否则每重连一次就漏一组后台线程和缓存，还会继续查已断开会话的玩家名。
+        tabStats.shutdown();
         Channel s = server;
         if (s != null && s.isActive()) s.close();
         if (client.isActive()) client.close();
