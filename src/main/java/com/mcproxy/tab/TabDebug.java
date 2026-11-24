@@ -20,10 +20,6 @@ public final class TabDebug {
         enabled = on;
     }
 
-    public static boolean enabled() {
-        return enabled;
-    }
-
     public static void log(String line) {
         if (!enabled) return;
         try {

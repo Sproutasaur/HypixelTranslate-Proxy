@@ -41,10 +41,6 @@ public final class EncryptionCodec extends ByteToMessageCodec<ByteBuf> {
         this.enabled = true;
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws GeneralSecurityException {
         if (!enabled) {

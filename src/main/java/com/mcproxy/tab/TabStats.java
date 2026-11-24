@@ -444,11 +444,6 @@ public final class TabStats {
         TabDebug.log(line);
     }
 
-    /** 组件里有没有任何颜色信息（§ 码或 color 字段）。 */
-    private static boolean hasColor(String raw) {
-        return raw != null && (raw.indexOf('§') >= 0 || raw.contains("\"color\""));
-    }
-
     /** 解析一段聊天组件 JSON；空 / 无效 / 没有内容的一律当"没有"处理。 */
     private static JsonElement parseComponent(String raw) {
         if (raw == null) return null;

@@ -5,7 +5,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageCodec;
 import io.netty.handler.codec.TooLongFrameException;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -45,14 +44,4 @@ public final class FrameCodec extends ByteToMessageCodec<ByteBuf> {
         out.writeBytes(msg);
     }
 
-    /** 给业务代码用的小工具：把一段文本写成 JSON 字符串字段。 */
-    public static String jsonString(String raw) {
-        return "\"" + raw.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\n", "\\n").replace("\r", "\\r") + "\"";
-    }
-
-    static {
-        // 确保字符串编码常量被引用（避免 IDE 误删 import）
-        StandardCharsets.UTF_8.name();
-    }
 }

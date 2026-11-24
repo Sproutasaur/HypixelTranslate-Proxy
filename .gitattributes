@@ -4,7 +4,6 @@
 *.md    text
 *.json  text
 *.xml   text
-*.py    text
 *.sh    text eol=lf
 *.yml   text eol=lf
 

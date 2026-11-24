@@ -72,10 +72,6 @@ public final class AuthService {
         return name;
     }
 
-    public String uuid() {
-        return uuid;
-    }
-
     /** 启动时调用：有缓存就刷新，没有就走设备码登录（阻塞直到完成）。 */
     public synchronized void ensureLogin() throws IOException, InterruptedException {
         if (offline) {

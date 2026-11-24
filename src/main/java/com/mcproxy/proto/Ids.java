@@ -25,7 +25,6 @@ public final class Ids {
     // position 字节：0 = 聊天框，1 = 系统消息，2 = 物品栏上方
     public static final int CHAT_POSITION_CHAT = 0;
     public static final int CHAT_POSITION_SYSTEM = 1;
-    public static final int CHAT_POSITION_ABOVE_HOTBAR = 2;
 
     // Tab 相关
     public static final int PLAY_PLAYER_LIST_ITEM = 0x38;

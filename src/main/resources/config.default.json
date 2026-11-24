@@ -9,7 +9,7 @@
 
   // 服务器列表 MOTD。支持 § 颜色码和 \n 换行；online/max 只影响显示
   "motd": {
-    "text": "§aHypixelTranslate-Proxy §7· §b本地翻译代理",
+    "text": "HypixelTranslate-Proxy · 本地翻译代理",
     "online": 1,
     "max": 1
   },
@@ -56,14 +56,14 @@
     "baseUrl": "https://api.deepseek.com",
     "apiKey": "",                     // ← 填你的 sk- 开头密钥，不填就不翻译
     "model": "deepseek-flash",
-    "timeoutMs": 2500,                // 单条翻译超时（毫秒）
+    "timeoutMs": 1200,                // 单条翻译超时（毫秒）
     "maxQueue": 40,                   // 队列上限，刷屏时超出就丢弃译文
     "cacheSize": 2000,                // 译文缓存条数
     "systemPrompt": "你是 Minecraft 聊天翻译器。把用户给出的聊天内容翻译成目标语言。要求：只输出译文本身，不要解释、不要加引号；玩家名、队伍标签、数字、坐标、命令(/开头)、物品ID、颜色代码不要翻译；Minecraft 黑话按玩家圈习惯处理（gg=打得漂亮，ez=轻松，wp=打得不错，creeper=苦力怕，nether=下界，ender=末影）；保留原来的语气，口语化，简短。"
   },
 
   "tab": {
-    "enabled": true,                 // Tab 名字后面挂统计，不想用改 false
+    "enabled": false,                 // Tab 名字后面挂统计，改 true 才生效
     "hypixelApiKey": "",              // ← 游戏里输 /api new 生成；每天 300 次额度
     "apiBase": "https://api.hypixel.net/v2",
     // 数据源：official=官方 / thirdparty=第三方 / auto=官方不行就切第三方
