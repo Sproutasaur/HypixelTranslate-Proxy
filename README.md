@@ -117,7 +117,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 | `targetLanguage` | `zh-CN` | 收消息翻成什么语言 |
 | `baseUrl` / `apiKey` / `model` | DeepSeek / 空 / `deepseek-flash` | 任意 OpenAI 兼容 `/chat/completions` 接口 |
 | `systemPrompt` | 见配置 | 翻译提示词，可自行调风格 |
-| `timeoutMs` | `1200` | 单条超时，超时放弃、不阻塞聊天 |
+| `timeoutMs` | `2500` | 单条超时，超时放弃、不阻塞聊天（DeepSeek flash 实测约 0.8s，留足余量） |
 | `maxQueue` | `40` | 在途请求上限，刷屏时超出丢译文（原文照常显示） |
 | `cacheSize` | `2000` | 译文 LRU 缓存条数 |
 | `appendWaitMs` | `250` | 原文最多压多久等译文；超时先显示原文，译文晚到补一行 |
@@ -136,7 +136,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `enabled` | `false` | 总开关 |
+| `enabled` | `true` | 总开关，不想挂统计改 false |
 | `hypixelApiKey` | 空 | Hypixel 官方 key（`official` 模式下留空 = 完全不查） |
 | `apiBase` | `https://api.hypixel.net/v2` | 官方接口根地址 |
 | `dataSource` | `auto` | `official` 只查官方 / `thirdparty` 只查第三方 / `auto` 官方不行就切第三方 |
