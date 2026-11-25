@@ -1,0 +1,108 @@
+{
+  // In-game: Multiplayer -> Direct Connect -> 127.0.0.1:25565
+  "listenPort": 25565,
+
+  // Server list MOTD: supports § colour codes and \n line breaks.
+  // online/max are display-only — the proxy still runs one account, one session.
+  "motd": {
+    "text": "§aHypixelTranslate-Proxy §7· §bLocal Translation Proxy",
+    "online": 1,
+    "max": 1
+  },
+
+  // Upstream route: if you use an accelerator, put the IP and port it gives you here.
+  "upstreamHost": "mc.hypixel.net",
+  "upstreamPort": 25565,
+
+  "translate": {
+    // OpenAI-compatible endpoint. Defaults to OpenAI; you can also use
+    // OpenRouter (https://openrouter.ai/api/v1) or Groq (https://api.groq.com/openai/v1).
+    "baseUrl": "https://api.openai.com/v1",
+
+    // Leave this empty until you have your own API key.
+    // With an empty key, translation is disabled and the proxy prints a startup warning.
+    "apiKey": "",
+
+    // Incoming messages are translated into this language: en, zh-CN, ja, ko, ...
+    // With en, pure-English lines are skipped and never sent to the model;
+    // only lines containing other scripts or accented letters are translated.
+    "targetLanguage": "en",
+    "model": "gpt-4o-mini",
+
+    // How long (ms) the original line may wait for its translation.
+    // Higher = tidier pairing, lower = snappier chat.
+    "appendWaitMs": 250,
+
+    // Outgoing translation is off by default: English-speaking players normally do not need it.
+    // Set it to true if you type Chinese/Japanese/Korean and want teammates to read English.
+    "translateOutgoing": false,
+    "outgoingTargetLanguage": "en",
+
+    // Translate player chat only; system lines (You are AFK / +10 EXP) pass through untouched.
+    "onlyPlayerChat": true,
+
+    // Skip messages with <= 10 letters after the name is removed (nice / gj). 0 = off.
+    "skipShortMessages": 10,
+
+    // Do not translate the same line again within 60 seconds. 0 = off.
+    "dedupSeconds": 60,
+
+    // Messages starting with these are never translated; Tab NPCs with these prefixes are not looked up either.
+    "skipPrefixes": ["[NPC]"],
+
+    // Slang / filler words that never need translating.
+    "skipWords": [
+      "gg", "ggwp", "wp", "ez", "ezpz", "l", "ll", "lol", "lmao", "lmfao", "rofl",
+      "xd", "omg", "kek", "kekw", "rip", "gl", "hf", "glhf", "gf",
+      "hi", "hey", "yo", "sup", "ty", "thx", "tyt", "brb", "afk", "gtg",
+      "ok", "okay", "nvm", "o7", "salute", "f", "ff", "w", "pog"
+    ],
+
+    // English system prompt so a non-Chinese model gets the same instructions.
+    "systemPrompt": "You are a translator for Minecraft chat. The request gives a target language and a chat line. Translate the chat line into that target language and output exactly one line: the translation only. Do not add quotes, a 'Translation:' label, explanations, romanization, or notes. Keep the speaker prefix (for example 'Steve:') unchanged; translate only the message after it. Do not translate player names, team names, ranks, numbers, coordinates, URLs, item IDs, commands beginning with '/', or § colour codes. Leave Minecraft terms and slang natural instead of literal: gg, ez, wp, gl, hf, creeper, nether, ender, bedwars, skyblock, FKDR. Preserve the original tone, including casual, joking, or toxic wording, and keep it as short as the original. If the chat line is already in the target language or is only slang, return it unchanged."
+  },
+
+  "tab": {
+    // Append stats after each Tab name. Set enabled to false if you do not want it.
+    "enabled": false,
+
+    // Generate one in game with /api new; replace it when the quota runs out.
+    "hypixelApiKey": "",
+
+    // Data source: official = Hypixel API only; thirdparty = third-party stats site only;
+    // auto = official first, fall back to third-party when official is unavailable.
+    "dataSource": "auto",
+
+    // Third-party stats endpoint; no need to change.
+    "thirdPartyBaseUrl": "https://api.khadow.lol",
+
+    // Also accepts bedwars_wins / bedwars_final_kills / skywars_kdr.
+    "stat": "bedwars_fkdr",
+
+    // Text shown after the number.
+    "label": "FKDR",
+
+    // Separator between the player name and the stats.
+    "separator": " §7| ",
+
+    // Number colour: §b aqua, §e yellow, §a green, §c red, §6 gold.
+    "valueColor": "§b",
+
+    // Cheat warning: reads Urchin flags returned by the third-party API and prints
+    // one line in your own chat. Requires tab.enabled = true.
+    // Only the third-party API carries these fields, so it can only fire when:
+    //   1) dataSource = thirdparty — every lookup is third-party;
+    //   2) dataSource = auto — official could not answer (no key / 429 / no data / 300/day quota used up).
+    // It never fires while the official quota is still working, and never with dataSource = official.
+    "cheatWarn": {
+      // Turn this off to stop the extra lookup and all warnings.
+      "enabled": true,
+
+      // any = warn on any flag; confirmed = only confirmed_cheater.
+      "minLevel": "any",
+
+      // Maximum warnings per round, to avoid flooding on big servers.
+      "maxPerSession": 20
+    }
+  }
+}
