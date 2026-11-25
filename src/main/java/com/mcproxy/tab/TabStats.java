@@ -815,7 +815,7 @@ public final class TabStats {
      */
     private Queried fetchThirdParty(String name) throws Exception {
         String base = cfg.tab.thirdPartyBaseUrl == null || cfg.tab.thirdPartyBaseUrl.isBlank()
-                ? "https://api.khadow.lol" : cfg.tab.thirdPartyBaseUrl.trim();
+                ? Config.Tab.DEFAULT_THIRD_PARTY_BASE_URL : cfg.tab.thirdPartyBaseUrl.trim();
         String url = base.replaceAll("/+$", "") + "/stats";
         JsonObject body = new JsonObject();
         body.addProperty("username", ChatText.stripFormatting(name == null ? "" : name).trim());

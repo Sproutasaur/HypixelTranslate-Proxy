@@ -87,6 +87,9 @@ public final class Config {
 
     /** Tab 玩家名后面挂统计。数据来自 Hypixel 公共 API。 */
     public static final class Tab {
+        /** 第三方统计接口默认根地址。改这里即可，不要在调用侧再写一份。 */
+        public static final String DEFAULT_THIRD_PARTY_BASE_URL = "https://api.khadow.lol";
+
         public boolean enabled = false;
 
         /** Hypixel API key（在 developer.hypixel.net 创建 App 获取）。 */
@@ -101,7 +104,7 @@ public final class Config {
          */
         public String dataSource = "auto";
         /** 第三方统计接口根地址，POST {base}/stats，body {"username":...,"fetch_type":"hypixel"} */
-        public String thirdPartyBaseUrl = "https://api.khadow.lol";
+        public String thirdPartyBaseUrl = DEFAULT_THIRD_PARTY_BASE_URL;
 
         /** 要显示的统计：bedwars_fkdr / bedwars_wins / bedwars_final_kills / skywars_kdr */
         public String stat = "bedwars_fkdr";
