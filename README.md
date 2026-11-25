@@ -34,6 +34,12 @@
 - **服务器列表 MOTD**：可自定义文字、颜色码、显示人数。
 - **断线联动**：客户端断开立刻断上游，上游踢人立刻断本地，不残留挂机。
 
+## 支持语言
+
+- **配置模板**：Windows 中文系统（简体 / 繁体）使用中文配置；其它 Windows 语言使用英文配置（`config.en.json`）；macOS / Linux 固定中文配置。
+- **聊天翻译**：目标语言由翻译模型决定，常用 `zh-CN`、`en`、`ja`、`ko`、`ru`、`es`、`fr`、`de`，填模型支持的语言代码即可。
+- **纯英文跳过**：`targetLanguage` 为英文（`en` / `en-US` 等）时，纯英文聊天不送模型；混有中文、日文、俄文或带重音字母的内容仍会翻译。
+
 ## 快速开始
 
 要求：**Java 17 或更高**。
@@ -60,6 +66,14 @@ java -jar target/HypixelTranslate-Proxy.jar
 3. 令牌存到 `auth.json`，之后自动续期
 
 然后编辑 `config.json`：至少填 `translate.apiKey`（翻译接口密钥），需要 Tab 统计再填 `tab.hypixelApiKey`。
+
+首次生成配置时会按系统语言选模板，**只对 Windows 生效**：
+
+- Windows 中文（简体 / 繁体，`zh` 开头）→ 中文配置模板
+- Windows 其它语言 → 英文配置模板
+- macOS / Linux → 仍然使用中文配置模板
+
+已经存在的 `config.json` 不会被覆盖；要换语言模板，先备份或删掉旧文件再启动。
 
 ### 游戏内连接
 
@@ -108,6 +122,8 @@ java -jar target/HypixelTranslate-Proxy.jar
 | `skipWords` | gg/lol/ez… | 整条消息只由这些词组成就不翻；清空 `[]` 关闭 |
 
 > 收发两个方向的语言分开配：`targetLanguage` 管收进来的消息，`outgoingTargetLanguage` 管发出去的消息。
+> 设成英文（`en` / `en-US` 等）时，**纯英文聊天直接跳过、不送模型**；只有混进中文/日文/俄文或带重音字母的句子才会翻。
+> 翻译请求会尽量关掉模型思考：DeepSeek 用 `thinking=disabled`，OpenRouter 用 `reasoning.enabled=false`，OpenAI / Groq 用 `reasoning_effort` 的最低档；其它 OpenAI 兼容服务先试 `reasoning_effort=none`。模型不支持或强制思考时会自动去掉参数重试，不会因此翻不了。
 
 ### Tab 统计 `tab`
 

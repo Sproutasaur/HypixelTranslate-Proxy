@@ -139,6 +139,26 @@ public final class ChatText {
         return false;
     }
 
+    /**
+     * 纯英文：所有字母都是 ASCII 英文字母（数字、标点、颜色码不影响判断）。
+     *
+     * 英文版配置（targetLanguage = en）用它跳过"本来就是英文"的聊天，
+     * 不然 Hypixel 聊天里 90% 的英文句子会被白送给模型翻成同样的英文，白花钱还多等 250ms。
+     * 只要混进一个中文/日文/俄文/带重音的拉丁字母，就不算纯英文，照常翻。
+     */
+    public static boolean isEnglishOnly(String s) {
+        if (s == null || s.isEmpty()) return false;
+        int letters = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (!Character.isLetter(c)) continue;
+            letters++;
+            boolean ascii = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+            if (!ascii) return false;
+        }
+        return letters > 0;
+    }
+
     public static boolean isMostlyCjk(String s) {
         if (s == null || s.isEmpty()) return false;
         int cjk = 0;

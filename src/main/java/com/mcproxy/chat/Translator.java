@@ -437,6 +437,12 @@ public final class Translator {
         if (target.startsWith("zh") || target.startsWith("ja") || target.startsWith("ko")) {
             return ChatText.isMostlyCjk(text);
         }
+        // 目标语言是英文时：纯英文聊天本来就不用翻。
+        // 不跳过的话，Hypixel 里绝大多数英文句子都会被送进模型翻成同样的英文，
+        // 既花 token 又要多等一个 appendWaitMs，英文版配置会显得又慢又贵。
+        if (target.startsWith("en")) {
+            return ChatText.isEnglishOnly(text);
+        }
         return false;
     }
 

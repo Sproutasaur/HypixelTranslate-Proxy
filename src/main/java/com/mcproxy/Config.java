@@ -181,7 +181,7 @@ public final class Config {
          */
         public Boolean onlyPlayerChat = true;
 
-        /** 已经是目标语言的内容直接跳过（按中日韩字符占比判断） */
+        /** 已经是目标语言的内容直接跳过（中日韩按字符占比，英文按"纯 ASCII 字母"判断） */
         public boolean skipIfAlreadyTarget = true;
 
         /**
@@ -243,12 +243,31 @@ public final class Config {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+    private static final String TEMPLATE_ZH = "/config.default.json";
+    private static final String TEMPLATE_EN = "/config.en.json";
+
+    /**
+     * 首次生成配置时按系统语言选模板：
+     *  - 仅 Windows 参与：中文（简体/繁体）→ 中文模板，其它语言 → 英文模板
+     *  - 非 Windows 保持原行为，一律中文模板
+     */
+    static String templateFor(String osName, String language) {
+        String os = osName == null ? "" : osName.toLowerCase(java.util.Locale.ROOT);
+        String lang = language == null ? "" : language.toLowerCase(java.util.Locale.ROOT);
+        if (os.contains("win") && !lang.startsWith("zh")) return TEMPLATE_EN;
+        return TEMPLATE_ZH;
+    }
+
     public static Config load(Path file) throws IOException {
         if (!Files.exists(file)) {
             // 优先释放 jar 内置的带备注配置模板，让用户拿到的第一份配置自带说明。
             // 读不到资源（比如源码直接跑、jar 被改过）再回退到硬编码默认值。
+            String templateName = templateFor(
+                    System.getProperty("os.name"),
+                    System.getProperty("user.language"));
+            boolean english = TEMPLATE_EN.equals(templateName);
             boolean released = false;
-            try (InputStream in = Config.class.getResourceAsStream("/config.default.json")) {
+            try (InputStream in = Config.class.getResourceAsStream(templateName)) {
                 if (in != null) {
                     String template = new String(in.readAllBytes(), StandardCharsets.UTF_8);
                     if (!template.isBlank()) {
@@ -262,6 +281,10 @@ public final class Config {
             }
             System.out.println("[config] 已生成" + (released ? "带备注的" : "") + "默认配置: "
                     + file.toAbsolutePath());
+            System.out.println("[config] 模板: "
+                    + (released ? (english ? "English" : "中文") : "内置默认（资源缺失）")
+                    + " · 系统语言: " + System.getProperty("user.language", "")
+                    + "-" + System.getProperty("user.country", ""));
             System.out.println("[config] 第一次运行需要填 translate.apiKey，并检查 upstreamHost。");
             // 不要直接返回内存里的默认对象：那是硬编码默认值，可能和刚写出的模板不一致
             // （曾导致首次启动读的还是内存默认值）。统一走下面的文件解析。

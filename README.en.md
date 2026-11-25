@@ -30,11 +30,18 @@ Chat reading, translation and display-name rewriting only. No packet automation,
 
 - **Incoming chat**: server messages are translated to `translate.targetLanguage` (code default `zh-CN`, changeable); the translation is appended as its own line (`└ …`), queued by sequence so lines never interleave.
 - **Outgoing chat**: your text is translated to `outgoingTargetLanguage` (default `en`) before sending; for chat commands (`/pc`, `/msg`, …) only the body is translated, the command and player name are kept.
-- **Token friendly**: slang (`gg`, `lol`, `ez`…), very short lines, repeated spam, `[NPC]` dialogue and non-player messages are skipped.
+- **Token friendly**: slang (`gg`, `lol`, `ez`…), very short lines, repeated spam, `[NPC]` dialogue and non-player messages are skipped. With `targetLanguage` set to English, pure-English lines are skipped too — only lines containing Chinese/Japanese/Russian or accented letters go to the model.
+- **Reasoning off by default**: requests use the provider's lowest/no-thinking setting — `thinking=disabled` on DeepSeek, `reasoning.enabled=false` on OpenRouter, and the lowest `reasoning_effort` on OpenAI/Groq; any other OpenAI-compatible endpoint first tries `reasoning_effort=none`. If a model forbids it (mandatory reasoning or unknown parameter), the parameter is dropped and the request retried instead of failing.
 - **Tab stats**: FKDR and friends appended to each name; nameplates untouched. Data from the official Hypixel API, a third-party stats site, or `auto` fallback.
 - **Cheat warning**: when the third-party source returns an Urchin flag, a single local chat line tells you who it is (once per player per round — reset when the round changes, visible only to you). Requires `tab.enabled = true`; the settings live under `tab.cheatWarn`.
 - **Custom MOTD** for the multiplayer list.
 - **Lifecycle binding**: client disconnect kills the upstream session, and vice versa.
+
+## Supported languages
+
+- **Config templates**: Windows with a Chinese UI language (Simplified or Traditional) uses the Chinese config; any other Windows language uses the English config (`config.en.json`); macOS / Linux always uses the Chinese config.
+- **Chat translation**: the target language depends on the translation model. Common values are `zh-CN`, `en`, `ja`, `ko`, `ru`, `es`, `fr`, and `de`; use any language code the model supports.
+- **Pure-English skip**: when `targetLanguage` is English (`en` / `en-US` / …), pure-English chat is not sent to the model; lines with Chinese, Japanese, Russian, or accented letters are still translated.
 
 ## Quick start
 
@@ -54,6 +61,14 @@ java -jar target/HypixelTranslate-Proxy.jar
 The build produces a shaded, runnable fat jar.
 
 First run generates `config.json`, prints a Microsoft device code (open <https://www.microsoft.com/link>), and stores the token in `auth.json`. Then set at least `translate.apiKey`, and `tab.hypixelApiKey` if you want Tab stats.
+
+The first-run template follows the **Windows UI language**:
+
+- Windows with a Chinese language (Simplified or Traditional, `zh…`) → Chinese config
+- Any other Windows language → English config
+- macOS / Linux → Chinese config, unchanged
+
+An existing `config.json` is never overwritten. Back it up or delete it if you want to regenerate with the other language.
 
 In game: Multiplayer → Direct Connect → `127.0.0.1:25565`.
 
