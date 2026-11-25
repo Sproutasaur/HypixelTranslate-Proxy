@@ -110,7 +110,8 @@ Keep the handshake hostname at its default `mc.hypixel.net` — Hypixel routes b
 5. Shared exit IP with public accelerator IPs may affect the server's risk scoring.
 6. Tab stats cache lives only for the current session; a reconnect queries again.
 7. A local LLM endpoint without an API key only works for incoming chat — outgoing CJK text is not intercepted when `apiKey` is empty (any non-empty placeholder works).
-8. Not verified against the real Hypixel: real login/sessionserver, real accelerator behaviour, real Tab structure, long-run stability.
+8. Core paths have been tested on real Hypixel: Microsoft login/sessionserver, accelerator routing, and displayName rendering with the real Tab structure. Long-run stability is not covered by this test.
+9. Urchin cheat flags have **not yet been validated for hit rate or false positives in real matches**; they are shown exactly as the third-party API returns them. `confirmed_cheater` is not an official ban record — treat it as a hint only.
 
 ## Cheat warning (`tab.cheatWarn`)
 
@@ -136,6 +137,8 @@ Line format (written straight into your own chat, never sent to the server):
 ```
 
 `confirmed_cheater` → `[作弊确认]`, other types → `[疑似作弊]`, blacklist only → `[有标记]`. Once per player per round; the dedupe set and the counter reset when the round changes (player list turns over and fewer than a quarter of the names are known). The line is injected locally at the `CHAT` position, bypassing the translation pipeline, so it is never translated.
+
+Flags come from the community Urchin database, not an official ban record. Hit rate and false positives have **not yet been validated in real Hypixel matches**; `confirmed_cheater` reflects the third-party database's judgement, not an official ban.
 
 ## Disclaimer
 
