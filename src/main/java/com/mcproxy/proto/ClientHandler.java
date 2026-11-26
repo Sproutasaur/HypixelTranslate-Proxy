@@ -24,9 +24,13 @@ public final class ClientHandler extends ChannelInboundHandlerAdapter {
 
     private final Session session;
     private int state = STATE_HANDSHAKE;
+    /** 发送翻译开关，只对当前会话生效；重连后回到 config 里的初始值 */
+    private final java.util.concurrent.atomic.AtomicBoolean outgoingTranslation;
 
     public ClientHandler(Session session) {
         this.session = session;
+        this.outgoingTranslation = new java.util.concurrent.atomic.AtomicBoolean(
+                session.config().translate.translateOutgoing);
     }
 
     public void enterPlay() {
@@ -108,27 +112,128 @@ public final class ClientHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void handlePlay(ByteBuf buf) {
-        // 没开翻译、没填 key 就别扣消息：扣了也只能等超时再把原文发出去
-        if (session.config().translate.translateOutgoing
-                && session.config().translate.enabled
-                && session.config().translate.apiKey != null
-                && !session.config().translate.apiKey.isBlank()) {
-            ByteBuf copy = buf.duplicate();
+        ByteBuf copy = buf.duplicate();
+        try {
             int id = VarInt.read(copy);
             if (id == Ids.PLAY_CHAT_SERVERBOUND) {
                 String message = Buf.readString(copy);
-                // 只把中文翻成外语。普通聊天整句翻；/pc、/msg 这类聊天命令只翻正文，
-                // 命令本身和玩家名原样带过去；其它命令（/spawn、/gift）一律不动。
-                if (message.length() <= 100 && !message.startsWith("!")) {
-                    String[] split = splitChatCommand(message);
-                    if (split != null && com.mcproxy.chat.ChatText.hasCjk(split[1])) {
-                        sendWithTranslation(split[1], split[0], buf);
-                        return;
+
+                // /htp 系列是代理自己的本地指令，永远不发给服务器，也不受翻译开关影响
+                if (handleLocalCommand(message)) {
+                    buf.release();
+                    return;
+                }
+
+                // 没开翻译、没填 key 就别扣消息：扣了也只能等超时再把原文发出去
+                if (outgoingTranslation.get()
+                        && session.config().translate.enabled
+                        && session.config().translate.apiKey != null
+                        && !session.config().translate.apiKey.isBlank()) {
+                    // 只把中文翻成外语。普通聊天整句翻；/pc、/msg 这类聊天命令只翻正文，
+                    // 命令本身和玩家名原样带过去；其它命令（/spawn、/gift）一律不动。
+                    if (message.length() <= 100 && !message.startsWith("!")) {
+                        String[] split = splitChatCommand(message);
+                        if (split != null && com.mcproxy.chat.ChatText.hasCjk(split[1])) {
+                            sendWithTranslation(split[1], split[0], buf);
+                            return;
+                        }
                     }
                 }
             }
+        } catch (Exception e) {
+            // 解析失败就原样转发，绝不因为本地指令 / 翻译判断弄丢消息
+            log.debug("[client] 出站聊天解析失败: {}", e.toString());
         }
         session.toServer(buf);
+    }
+
+    /**
+     * 处理代理本地指令。返回 true 表示这条已经被消费，不能再发往服务器。
+     *
+     *   /htp                    切换发送翻译
+     *   /htp on|off|toggle      切换发送翻译
+     *   /htp outgoing on|off    明确开关
+     *   /htp status             查看当前状态
+     */
+    private boolean handleLocalCommand(String message) {
+        if (message == null) return false;
+        String command = message.trim();
+        if (!command.startsWith("/")) return false;
+        String[] parts = command.substring(1).trim().split("\\s+");
+        if (parts.length == 0 || !"htp".equalsIgnoreCase(parts[0])) return false;
+
+        if (parts.length == 1) {
+            setOutgoingTranslation(!outgoingTranslation.get());
+            return true;
+        }
+
+        String sub = parts[1].toLowerCase(java.util.Locale.ROOT);
+        switch (sub) {
+            case "on" -> {
+                setOutgoingTranslation(true);
+                return true;
+            }
+            case "off" -> {
+                setOutgoingTranslation(false);
+                return true;
+            }
+            case "toggle" -> {
+                setOutgoingTranslation(!outgoingTranslation.get());
+                return true;
+            }
+            case "status" -> {
+                notifyOutgoingStatus();
+                return true;
+            }
+            case "outgoing" -> {
+                if (parts.length == 2) {
+                    setOutgoingTranslation(!outgoingTranslation.get());
+                } else {
+                    String value = parts[2].toLowerCase(java.util.Locale.ROOT);
+                    if ("on".equals(value)) {
+                        setOutgoingTranslation(true);
+                    } else if ("off".equals(value)) {
+                        setOutgoingTranslation(false);
+                    } else if ("toggle".equals(value)) {
+                        setOutgoingTranslation(!outgoingTranslation.get());
+                    } else {
+                        notifyUsage();
+                    }
+                }
+                return true;
+            }
+            default -> {
+                notifyUsage();
+                return true;
+            }
+        }
+    }
+
+    private void setOutgoingTranslation(boolean on) {
+        outgoingTranslation.set(on);
+        boolean ready = session.config().translate.enabled
+                && session.config().translate.apiKey != null
+                && !session.config().translate.apiKey.isBlank();
+        String text = "[HTP] 发送翻译" + (on ? "已开启" : "已关闭");
+        String color = on ? "green" : "red";
+        if (on && !ready) {
+            text = "[HTP] 发送翻译已开启，但翻译总开关或 API key 未配置，暂不会生效";
+            color = "yellow";
+        }
+        String json = "{\"text\":\"" + text + "\",\"color\":\"" + color + "\"}";
+        session.sendSelfChatJson(json);
+    }
+
+    private void notifyOutgoingStatus() {
+        boolean on = outgoingTranslation.get();
+        String json = "{\"text\":\"[HTP] 发送翻译当前："
+                + (on ? "开启" : "关闭") + "\",\"color\":\"" + (on ? "green" : "red") + "\"}";
+        session.sendSelfChatJson(json);
+    }
+
+    private void notifyUsage() {
+        session.sendSelfChatJson("{\"text\":\"[HTP] 用法：/htp、/htp on|off|toggle、"
+                + "/htp outgoing on|off|toggle、/htp status\",\"color\":\"yellow\"}");
     }
 
     /** 服务器列表里的 MOTD。文本/人数从配置读，支持 § 颜色码和 \n 换行。 */

@@ -125,6 +125,20 @@ java -jar target/HypixelTranslate-Proxy.jar
 > 设成英文（`en` / `en-US` 等）时，**纯英文聊天直接跳过、不送模型**；只有混进中文/日文/俄文或带重音字母的句子才会翻。
 > 翻译请求会尽量关掉模型思考：DeepSeek 用 `thinking=disabled`，OpenRouter 用 `reasoning.enabled=false`，OpenAI / Groq 用 `reasoning_effort` 的最低档；其它 OpenAI 兼容服务先试 `reasoning_effort=none`。模型不支持或强制思考时会自动去掉参数重试，不会因此翻不了。
 
+### 游戏内指令
+
+`/htp` 系列是代理本地指令，**不会发到服务器**，也不会占用 Hypixel 的命令。
+
+| 指令 | 作用 |
+|---|---|
+| `/htp` | 切换发送翻译开/关 |
+| `/htp on` / `/htp off` | 明确开启/关闭发送翻译 |
+| `/htp toggle` | 切换发送翻译 |
+| `/htp outgoing on` / `off` / `toggle` | 同上，带 `outgoing` 的完整写法 |
+| `/htp status` | 查看当前发送翻译状态 |
+
+开关只对当前会话有效，重连后回到 `translateOutgoing` 的配置值，不会写回 `config.json`。
+
 ### Tab 统计 `tab`
 
 | 键 | 默认 | 说明 |

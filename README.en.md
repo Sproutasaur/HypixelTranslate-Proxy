@@ -37,6 +37,20 @@ Chat reading, translation and display-name rewriting only. No packet automation,
 - **Custom MOTD** for the multiplayer list.
 - **Lifecycle binding**: client disconnect kills the upstream session, and vice versa.
 
+### In-game command
+
+`/htp` is handled locally by the proxy and **never sent to the server**, so it does not collide with Hypixel commands.
+
+| Command | Effect |
+|---|---|
+| `/htp` | Toggle outgoing translation |
+| `/htp on` / `/htp off` | Explicitly enable/disable outgoing translation |
+| `/htp toggle` | Toggle outgoing translation |
+| `/htp outgoing on` / `off` / `toggle` | Same, with the `outgoing` prefix |
+| `/htp status` | Show the current outgoing-translation state |
+
+The toggle is session-local: reconnecting resets it to the configured `translateOutgoing` value, and it is never written back to `config.json`.
+
 ## Supported languages
 
 - **Config templates**: Windows with a Chinese UI language (Simplified or Traditional) uses the Chinese config; any other Windows language uses the English config (`config.en.json`); macOS / Linux always uses the Chinese config.
