@@ -162,7 +162,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 - `auto` 下官方额度耗尽后，之前被官方缓存过的玩家也会单独补查一次第三方补上 Urchin，不会因为缓存一直漏提示
 - 提示行是本地直接写进客户端的，**不经过翻译管线**，不会被翻成别的语言，也不发到服务器
 - 标记来自社区库 Urchin，不是官方封号记录，只作参考
-- **尚未在真实 Hypixel 对局中验证命中率和误报**；`confirmed_cheater` 也只代表第三方库的判断，不等同于官方封号
+- **已在真实 Hypixel 对局中实测提示正常**；命中率和误报取决于 Urchin 第三方库，`confirmed_cheater` 也不等同于官方封号
 
 ### 数据源怎么选
 
@@ -220,8 +220,8 @@ java -jar target/HypixelTranslate-Proxy.jar
 6. **Tab 统计缓存只在当前会话内**：重连后会用同一份额度重新查一遍。
 7. **作弊提醒只在第三方数据源下有效**：官方 `/player` 接口没有 Urchin 字段，纯 `official` 模式不会提示。
 8. **无鉴权的本地接口（Ollama 等）只能用于收消息翻译**：`apiKey` 为空时代理不会拦截要发出去的中文，填任意非空字符串可绕过。
-9. **核心链路已在真实 Hypixel 实测**：微软账号登录与 sessionserver、加速IP、真实 Tab 结构下的 displayName 效果均已跑通；长时间挂机稳定性不在本次验证范围内。
-10. **Urchin 作弊标记尚未在真实对局中验证命中率和误报**：只按第三方接口原样展示，`confirmed_cheater` 也不等于官方封号，仅作参考。
+9. **核心链路已在真实 Hypixel 实测**：微软账号登录与 sessionserver、加速IP、真实 Tab 结构下的 displayName 效果、Tab 统计、聊天翻译与 Urchin 作弊提醒均已跑通；长时间挂机稳定性不在本次验证范围内。
+10. **Urchin 作弊标记的命中率和误报取决于第三方库**：只按第三方接口原样展示，`confirmed_cheater` 也不等于官方封号，仅作参考。
 
 ## 常见问题
 
