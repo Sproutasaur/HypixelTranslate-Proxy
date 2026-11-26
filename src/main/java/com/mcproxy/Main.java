@@ -11,7 +11,7 @@ public final class Main {
     public static void main(String[] args) throws Exception {
         Path configPath = Paths.get(args.length > 0 ? args[0] : "config.json");
 
-        System.out.println("[main] HypixelTranslate-Proxy · MC 1.8.9 · build 1126b · v1.2.0");
+        System.out.println("[main] HypixelTranslate-Proxy · MC 1.8.9 · build 1126c · v1.2.1");
 
         Config cfg = Config.load(configPath);
 

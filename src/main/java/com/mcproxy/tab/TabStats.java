@@ -683,26 +683,21 @@ public final class TabStats {
         String expected = ChatText.stripFormatting(name == null ? "" : name).trim();
         if (expected.isEmpty()) return null;
 
-        if (el.isJsonPrimitive()) {
-            String raw = el.getAsString();
-            return ChatText.stripFormatting(raw).trim().equals(expected)
-                    ? text(ChatText.stripFormatting(raw)) : null;
+        // 不只看根节点的 text：Hypixel 有时下发 {"text":"","extra":[{"text":"Steve"}]}，
+        // 这里按整个组件的可见文字判断，名字被包在 extra 里也能认出来。
+        String flat = ChatText.stripFormatting(ChatText.toPlain(el.toString())).trim();
+        if (!flat.equals(expected)) return null;
+
+        JsonObject out;
+        if (el.isJsonObject()) {
+            out = el.getAsJsonObject().deepCopy();
+            // 把 siblings 折回 text，避免原来的 extra 再叠一遍名字；点击/悬浮事件保留
+            out.remove("extra");
+        } else {
+            out = text(flat);
         }
-        if (!el.isJsonObject()) return null;
-
-        JsonObject o = el.getAsJsonObject();
-        if (o.has("extra")) {
-            if (!o.get("extra").isJsonArray() || o.getAsJsonArray("extra").size() > 0) return null;
-        }
-        if (!o.has("text") || !o.get("text").isJsonPrimitive()) return null;
-
-        String raw = o.get("text").getAsString();
-        if (!ChatText.stripFormatting(raw).trim().equals(expected)) return null;
-
-        // 裸名字里如果夹着 § 颜色码，保留下来会和组件 color 打架；这里去掉颜色码，
-        // 让下面统一按队伍/段位色渲染。
-        if (raw.indexOf('§') >= 0) o.addProperty("text", ChatText.stripFormatting(raw));
-        return o;
+        out.addProperty("text", flat);
+        return out;
     }
 
     /**

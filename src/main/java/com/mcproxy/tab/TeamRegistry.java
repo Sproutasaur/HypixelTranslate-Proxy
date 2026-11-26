@@ -126,7 +126,48 @@ public final class TeamRegistry {
     /** 队伍颜色对应的 § 码，没有就返回空串。 */
     public String colorOf(String player) {
         Team t = team(player);
-        return t == null ? "" : t.color;
+        if (t == null) return "";
+        if (!t.color.isEmpty()) return t.color;
+        // Hypixel 有些队伍把颜色写在 prefix（§c 这种），队伍颜色字段是 -1。
+        // 游戏内没有段位可兜底，这时候要从前缀/后缀里把颜色捞出来。
+        String fromPrefix = firstColor(t.prefix);
+        return !fromPrefix.isEmpty() ? fromPrefix : firstColor(t.suffix);
+    }
+
+    /** 取字符串里第一个颜色码（跳过 §l/§r 这类格式码）；也认 JSON 里的 "color":"red"。 */
+    private static String firstColor(String s) {
+        if (s == null) return "";
+        for (int i = 0; i + 1 < s.length(); i++) {
+            if (s.charAt(i) != '§') continue;
+            char c = Character.toLowerCase(s.charAt(i + 1));
+            if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) return "§" + c;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("\"color\"\\s*:\\s*\"([a-z_]+)\"")
+                .matcher(s);
+        if (m.find()) {
+            String code = switch (m.group(1)) {
+                case "black" -> "§0";
+                case "dark_blue" -> "§1";
+                case "dark_green" -> "§2";
+                case "dark_aqua" -> "§3";
+                case "dark_red" -> "§4";
+                case "dark_purple" -> "§5";
+                case "gold" -> "§6";
+                case "gray" -> "§7";
+                case "dark_gray" -> "§8";
+                case "blue" -> "§9";
+                case "green" -> "§a";
+                case "aqua" -> "§b";
+                case "red" -> "§c";
+                case "light_purple" -> "§d";
+                case "yellow" -> "§e";
+                case "white" -> "§f";
+                default -> "";
+            };
+            if (!code.isEmpty()) return code;
+        }
+        return "";
     }
 
     private Team team(String player) {

@@ -241,7 +241,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 **Tab 上没数字？** 确认 `tab.enabled=true` 且 `hypixelApiKey` 不为空；再看是不是 nick 玩家 / 关闭了 API 统计 / 当天额度用完。
 
-**名字变白、队伍称号没了？** 见上文 Tab 一节：displayName 会覆盖队伍渲染，代理会尽量补回前缀，但队伍包晚到时补不回来。
+**名字变白、队伍称号没了？** displayName 会覆盖队伍渲染。代理现在会按「队伍色 → 段位色」回刷，并支持从队伍前缀的 `§` 色码 / `"color"` 字段取色；队伍包晚到时约 500ms 内回刷。若仍白，开 `debugTab=true` 看 `[tab]` 日志里的 `队伍前缀 / 队伍色` 是否为空。
 
 **译文有时晚一行？** 原文最多等 `appendWaitMs`，超时先放原文，译文后到会单独补一行。
 
