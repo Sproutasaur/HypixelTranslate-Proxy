@@ -47,6 +47,22 @@ public final class TeamRegistry {
     private final Map<String, String> playerTeam = new ConcurrentHashMap<>();
     private final java.util.concurrent.atomic.AtomicInteger parsed = new java.util.concurrent.atomic.AtomicInteger();
     private final java.util.concurrent.atomic.AtomicInteger broken = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile Runnable changeListener;
+
+    /** 队伍信息变化后通知 TabStats 回刷已经发出去的 displayName。 */
+    public void setChangeListener(Runnable listener) {
+        this.changeListener = listener;
+    }
+
+    private void notifyChanged() {
+        Runnable listener = changeListener;
+        if (listener == null) return;
+        try {
+            listener.run();
+        } catch (Throwable t) {
+            log.debug("[team] 回刷通知失败: {}", t.toString());
+        }
+    }
 
     /** 解析 0x3E。传进来的是 duplicate，哪怕解析炸了也影响不到原包转发。 */
     public void handle(ByteBuf b) {
@@ -76,6 +92,7 @@ public final class TeamRegistry {
                 default -> { }
             }
             parsed.incrementAndGet();
+            notifyChanged();
         } catch (Throwable t) {
             // 队伍包格式对不上就跳过这一包，绝不影响转发
             broken.incrementAndGet();

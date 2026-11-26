@@ -105,7 +105,7 @@ Keep the handshake hostname at its default `mc.hypixel.net` — Hypixel routes b
 
 1. One instance = one account = one session.
 2. 1.8.9 only (protocol 47), no version translation.
-3. If team packets arrive after the player-list packet, the first Tab frame loses the team prefix/colour.
+3. If team packets arrive after the player-list packet, the first Tab frame may briefly lack the team prefix/colour; the proxy refreshes within about 500 ms, so a white frame can still flash very briefly.
 4. Limited translation throughput: 4 workers plus a per-message timeout; heavy spam drops translations.
 5. Shared exit IP with public accelerator IPs may affect the server's risk scoring.
 6. Tab stats cache lives only for the current session; a reconnect queries again.

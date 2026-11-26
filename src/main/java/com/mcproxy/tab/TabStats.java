@@ -158,6 +158,8 @@ public final class TabStats {
     /** 会话结束时把线程和定时任务一起停掉，避免重连一次漏一组后台任务 */
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final java.util.concurrent.ScheduledExecutorService ticker;
+    /** 队伍包可能晚于玩家列表到达；合并短时间内的多次变化，只回刷一次 */
+    private final AtomicBoolean teamRefreshQueued = new AtomicBoolean(false);
 
     public TabStats(Config cfg, TeamRegistry teams, Sender sender,
                     java.util.function.Consumer<String> chat,
@@ -183,6 +185,36 @@ public final class TabStats {
             return t;
         });
         ticker.scheduleWithFixedDelay(this::drainRetry, 2, 2, java.util.concurrent.TimeUnit.SECONDS);
+
+        // 队伍信息晚到（Hypixel 常见）时，已经挂上去的白名字要重新上色
+        this.teams.setChangeListener(this::onTeamsChanged);
+    }
+
+    private void onTeamsChanged() {
+        if (closed.get() || !cfg.tab.enabled) return;
+        if (!teamRefreshQueued.compareAndSet(false, true)) return;
+        try {
+            ticker.schedule(() -> {
+                teamRefreshQueued.set(false);
+                refreshTeamDisplays();
+            }, 500, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            teamRefreshQueued.set(false);
+        }
+    }
+
+    /** 队伍前缀/颜色/后缀变了，重发所有已有统计的 Tab 行。 */
+    private void refreshTeamDisplays() {
+        if (closed.get() || !cfg.tab.enabled) return;
+        for (Cached c : cache.values()) {
+            if (c.add == null || c.text == null) continue;
+            if ("?".equals(c.text) && !cfg.tab.showUnknown) continue;
+            try {
+                assertDisplay(c.add, c.text, c.rank);
+            } catch (Throwable t) {
+                log.debug("[tab] 回刷 {} 失败: {}", c.add.name, t.toString());
+            }
+        }
     }
 
     private void drainRetry() {
@@ -606,18 +638,13 @@ public final class TabStats {
         // ① 服务器给了名字，原样用。颜色、前缀、点击事件全在里面，动它就容易掉色
         JsonElement upstream = parseComponent(a.display);
         if (upstream != null) {
-            // 只有一种情况补一刀：上游给的是个没颜色的裸名字（"Steve" 这种），
-            // 那就按段位染个色，不然整行白花花的
-            if (upstream.isJsonObject() && rank != null) {
-                JsonObject o = upstream.getAsJsonObject();
-                boolean bareText = o.has("text") && !o.has("extra") && !o.has("color")
-                        && o.get("text").isJsonPrimitive()
-                        && o.get("text").getAsString().indexOf('§') < 0;
-                if (bareText) {
-                    // 队伍色优先（对局里红队蓝队就是它），没队伍才用段位色
-                    String teamColor = teams.colorOf(a.name);
-                    o.addProperty("color", colorName(teamColor.isEmpty() ? rank.color : teamColor));
-                }
+            // 上游只给了一个裸名字（不管有没有写 color），就按队伍/段位重新上色并补队伍前后缀。
+            // 之前只认“完全没有 color 的裸名字”，Hypixel 下发 {"text":"Steve","color":"white"}
+            // 时会直接原样保留，结果整行一直是白的。
+            JsonObject plain = plainName(upstream, a.name);
+            if (plain != null) {
+                addTeamWrapped(out, a, plain, rank);
+                return out;
             }
             out.add(upstream);
             return out;
@@ -629,7 +656,9 @@ public final class TabStats {
         if (!prefix.isEmpty() || !suffix.isEmpty()) {
             JsonElement p = parseComponent(prefix);
             if (p != null) out.add(p);
-            out.add(coloredText(a.name, colorName(teams.colorOf(a.name))));
+            String teamColor = teams.colorOf(a.name);
+            String color = !teamColor.isEmpty() ? teamColor : (rank == null ? "" : rank.color);
+            out.add(coloredText(a.name, color.isEmpty() ? "white" : colorName(color)));
             JsonElement s = parseComponent(suffix);
             if (s != null) out.add(s);
             return out;
@@ -644,6 +673,59 @@ public final class TabStats {
 
         out.add(coloredText(a.name, "white"));
         return out;
+    }
+
+    /**
+     * 判断上游 displayName 是不是“只有玩家名”的裸组件。
+     * 带队伍/段位前缀、带 siblings 的复杂组件不算，避免把本该保留的格式拆坏。
+     */
+    private static JsonObject plainName(JsonElement el, String name) {
+        String expected = ChatText.stripFormatting(name == null ? "" : name).trim();
+        if (expected.isEmpty()) return null;
+
+        if (el.isJsonPrimitive()) {
+            String raw = el.getAsString();
+            return ChatText.stripFormatting(raw).trim().equals(expected)
+                    ? text(ChatText.stripFormatting(raw)) : null;
+        }
+        if (!el.isJsonObject()) return null;
+
+        JsonObject o = el.getAsJsonObject();
+        if (o.has("extra")) {
+            if (!o.get("extra").isJsonArray() || o.getAsJsonArray("extra").size() > 0) return null;
+        }
+        if (!o.has("text") || !o.get("text").isJsonPrimitive()) return null;
+
+        String raw = o.get("text").getAsString();
+        if (!ChatText.stripFormatting(raw).trim().equals(expected)) return null;
+
+        // 裸名字里如果夹着 § 颜色码，保留下来会和组件 color 打架；这里去掉颜色码，
+        // 让下面统一按队伍/段位色渲染。
+        if (raw.indexOf('§') >= 0) o.addProperty("text", ChatText.stripFormatting(raw));
+        return o;
+    }
+
+    /**
+     * 裸名字 + 队伍前缀/后缀重新拼一行。队伍色优先，没有队伍才用段位色。
+     */
+    private void addTeamWrapped(List<JsonElement> out, Add a, JsonObject nameEl, Rank rank) {
+        String teamColor = teams.colorOf(a.name);
+        String color = !teamColor.isEmpty() ? teamColor : (rank == null ? "" : rank.color);
+        if (!color.isEmpty()) {
+            nameEl.addProperty("color", colorName(color));
+        }
+
+        String prefix = teams.prefixOf(a.name);
+        String suffix = teams.suffixOf(a.name);
+        if (!prefix.isEmpty() || !suffix.isEmpty()) {
+            JsonElement p = parseComponent(prefix);
+            if (p != null) out.add(p);
+            out.add(nameEl);
+            JsonElement s = parseComponent(suffix);
+            if (s != null) out.add(s);
+        } else {
+            out.add(nameEl);
+        }
     }
 
     /** 开着 debugTab 时把每次改写记下来，方便对着看是哪一步丢了颜色。 */
