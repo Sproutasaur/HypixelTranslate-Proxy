@@ -6,7 +6,7 @@
 
     <groupId>com.mcproxy</groupId>
     <artifactId>HypixelTranslate-Proxy</artifactId>
-    <version>1.2.1</version>
+    <version>1.2.3</version>
     <packaging>jar</packaging>
     <name>HypixelTranslate-Proxy</name>
 

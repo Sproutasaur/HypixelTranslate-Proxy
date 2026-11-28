@@ -13,6 +13,7 @@ import com.mcproxy.proto.Ids;
 import com.mcproxy.proto.ServerHandler;
 import com.mcproxy.proto.VarInt;
 import com.mcproxy.tab.TabStats;
+import com.mcproxy.tab.Nametags;
 import com.mcproxy.tab.TeamRegistry;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
@@ -50,6 +51,7 @@ public final class Session {
     private final Channel client;
     private final ChatOutbox outbox;
     private final TeamRegistry teams;
+    private final Nametags nametags;
     private final TabStats tabStats;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
@@ -66,7 +68,8 @@ public final class Session {
         // 译文晚到会单独补一行，不会丢。
         this.outbox = new ChatOutbox(client, cfg.translate.appendWaitMs);
         this.teams = new TeamRegistry();
-        this.tabStats = new TabStats(cfg, teams, this::sendTabDisplayName, this::sendSelfChat,
+        this.nametags = new Nametags();
+        this.tabStats = new TabStats(cfg, teams, nametags, this::sendTabDisplayName, this::sendSelfChat,
                 this::sendSelfChatJson);
         client.closeFuture().addListener(f -> closeAll());
     }
@@ -94,6 +97,11 @@ public final class Session {
     public TeamRegistry teams() {
         return teams;
     }
+
+    public Nametags nametags() {
+        return nametags;
+    }
+
 
     /** 给某个玩家的 Tab 行设置 displayName（action=3），只影响 Tab，不影响名牌。 */
     public void sendTabDisplayName(byte[] uuid, String displayNameJson) {
@@ -125,6 +133,18 @@ public final class Session {
         VarInt.write(out, Ids.PLAY_CHAT_CLIENTBOUND);
         Buf.writeString(out, ChatText.toComponent(text, "gray"));
         out.writeByte(Ids.CHAT_POSITION_CHAT);
+        client.writeAndFlush(out);
+    }
+
+    /** 回复客户端 Tab 补全请求（clientbound 0x3A）。 */
+    public void sendTabComplete(java.util.List<String> matches) {
+        if (!client.isActive()) return;
+        ByteBuf out = client.alloc().buffer();
+        VarInt.write(out, Ids.PLAY_TAB_COMPLETE_CLIENTBOUND);
+        VarInt.write(out, matches == null ? 0 : matches.size());
+        if (matches != null) {
+            for (String match : matches) Buf.writeString(out, match);
+        }
         client.writeAndFlush(out);
     }
 

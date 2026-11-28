@@ -166,6 +166,10 @@ public final class ServerHandler extends ChannelInboundHandlerAdapter {
                     // 抄一份队伍前缀：挂统计要下发 displayName，下发后客户端就不再套队伍了，
                     // 名字颜色和队伍标签得自己补回去
                     session.teams().handle(d);
+                } else if (cfg.tab.enabled && id == Ids.PLAY_SPAWN_PLAYER) {
+                    session.nametags().onSpawnPlayer(d);
+                } else if (cfg.tab.enabled && id == Ids.PLAY_ENTITY_METADATA) {
+                    session.nametags().onMetadata(d);
                 } else if (cfg.tab.enabled && id == Ids.PLAY_PLAYER_LIST_ITEM) {
                     ByteBuf peek = d.duplicate();
                     int action = VarInt.read(peek);

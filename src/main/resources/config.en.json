@@ -14,6 +14,12 @@
   "upstreamHost": "mc.hypixel.net",
   "upstreamPort": 25565,
 
+  // The hostname announced in the handshake. Keep mc.hypixel.net for a direct
+  // connection and for plain IP relays. Only change both lines below when your
+  // relay validates the handshake by hostname.
+  "handshakeHost": "mc.hypixel.net",
+  "handshakePort": 25565,
+
   "translate": {
     // OpenAI-compatible endpoint. Defaults to OpenAI; you can also use
     // OpenRouter (https://openrouter.ai/api/v1) or Groq (https://api.groq.com/openai/v1).
@@ -41,8 +47,8 @@
     // Translate player chat only; system lines (You are AFK / +10 EXP) pass through untouched.
     "onlyPlayerChat": true,
 
-    // Skip messages with <= 10 letters after the name is removed (nice / gj). 0 = off.
-    "skipShortMessages": 10,
+    // Skip messages with <= 3 letters after the name is removed (gj / ty). 0 = off.
+    "skipShortMessages": 3,
 
     // Do not translate the same line again within 60 seconds. 0 = off.
     "dedupSeconds": 60,

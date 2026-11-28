@@ -110,6 +110,7 @@ public final class TabStats {
 
     private final Config cfg;
     private final TeamRegistry teams;
+    private final Nametags nametags;
     private final ExecutorService exec;
     private final HttpClient http;
     private final Map<String, Cached> cache = new ConcurrentHashMap<>();
@@ -161,11 +162,12 @@ public final class TabStats {
     /** 队伍包可能晚于玩家列表到达；合并短时间内的多次变化，只回刷一次 */
     private final AtomicBoolean teamRefreshQueued = new AtomicBoolean(false);
 
-    public TabStats(Config cfg, TeamRegistry teams, Sender sender,
+    public TabStats(Config cfg, TeamRegistry teams, Nametags nametags, Sender sender,
                     java.util.function.Consumer<String> chat,
                     java.util.function.Consumer<String> chatJson) {
         this.cfg = cfg;
         this.teams = teams;
+        this.nametags = nametags;
         this.sender = sender;
         this.chat = chat;
         this.chatJson = chatJson;
@@ -188,6 +190,7 @@ public final class TabStats {
 
         // 队伍信息晚到（Hypixel 常见）时，已经挂上去的白名字要重新上色
         this.teams.setChangeListener(this::onTeamsChanged);
+        this.nametags.setChangeListener(this::onTeamsChanged);
     }
 
     private void onTeamsChanged() {
@@ -478,11 +481,11 @@ public final class TabStats {
             "yellow", "white"
     };
 
-    /** "§b" → "aqua"；认不出就当白色 */
+    /** "§b" → "aqua"；认不出就返回 null，由调用方决定不写颜色（不再兜底成白色） */
     private static String colorName(String code) {
-        if (code == null || code.length() < 2) return "white";
+        if (code == null || code.length() < 2) return null;
         int idx = "0123456789abcdef".indexOf(Character.toLowerCase(code.charAt(code.length() - 1)));
-        return idx >= 0 ? COLOR_NAMES[idx] : "white";
+        return idx >= 0 ? COLOR_NAMES[idx] : null;
     }
 
     private void assertDisplay(Add a, String value, Rank rank) {
@@ -502,6 +505,8 @@ public final class TabStats {
         debugLog("[tab] " + a.name
                 + " | 上游display=" + a.display
                 + " | 队伍前缀=" + teams.prefixOf(a.name) + " 队伍色=" + teams.colorOf(a.name)
+                + " 名牌=" + nametags.rawName(a.uuid)
+
                 + " | rank=" + (rank == null ? "null" : rank.prefix + "|" + rank.color)
                 + " | 发出=" + json);
         if (cfg.debugTab && chat != null && debugSent.getAndIncrement() < 3) {
@@ -656,23 +661,32 @@ public final class TabStats {
         if (!prefix.isEmpty() || !suffix.isEmpty()) {
             JsonElement p = parseComponent(prefix);
             if (p != null) out.add(p);
-            String teamColor = teams.colorOf(a.name);
-            String color = !teamColor.isEmpty() ? teamColor : (rank == null ? "" : rank.color);
-            out.add(coloredText(a.name, color.isEmpty() ? "white" : colorName(color)));
+            String color = resolveColor(a, rank);
+            out.add(coloredText(a.name, colorName(color)));
             JsonElement s = parseComponent(suffix);
             if (s != null) out.add(s);
             return out;
         }
 
-        // ③ 什么都没有：最多按段位给个颜色，不加 [VIP] 这种标签
-        if (rank != null) {
-            if (cfg.tab.showRankPrefix && !rank.prefix.isEmpty()) addColored(out, rank.prefix);
-            out.add(coloredText(a.name, colorName(rank.color)));
-            return out;
-        }
-
-        out.add(coloredText(a.name, "white"));
+        // ③ 什么都没有：队伍色 → 头顶名牌色 → 段位色；全都没有就不写颜色，不强行染白
+        String color = resolveColor(a, rank);
+        if (rank != null && cfg.tab.showRankPrefix && !rank.prefix.isEmpty()) addColored(out, rank.prefix);
+        out.add(coloredText(a.name, colorName(color)));
         return out;
+    }
+
+    /**
+     * 名字该用什么颜色：队伍色优先，其次头顶名牌色，最后段位色。
+     * 有些模式既没有队伍、rank 也不在 Tab 显示，只能靠名牌把颜色捞回来。
+     */
+    private String resolveColor(Add a, Rank rank) {
+        String team = teams.colorOf(a.name);
+        if (!team.isEmpty()) return team;
+        String tag = nametags.colorCode(a.uuid);
+        if (tag != null && !tag.isEmpty()) return tag;
+        // 没有段位前缀（默认玩家）时不要拿 §7 去改颜色，否则原本的白名会变灰
+        if (rank == null || rank.prefix.isEmpty()) return "";
+        return rank.color;
     }
 
     /**
@@ -704,8 +718,7 @@ public final class TabStats {
      * 裸名字 + 队伍前缀/后缀重新拼一行。队伍色优先，没有队伍才用段位色。
      */
     private void addTeamWrapped(List<JsonElement> out, Add a, JsonObject nameEl, Rank rank) {
-        String teamColor = teams.colorOf(a.name);
-        String color = !teamColor.isEmpty() ? teamColor : (rank == null ? "" : rank.color);
+        String color = resolveColor(a, rank);
         if (!color.isEmpty()) {
             nameEl.addProperty("color", colorName(color));
         }

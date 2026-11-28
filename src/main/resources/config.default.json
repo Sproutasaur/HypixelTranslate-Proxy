@@ -13,6 +13,11 @@
   "upstreamHost": "mc.hypixel.net",
   "upstreamPort": 25565,
 
+  // 握手时告诉服务器要连哪个域名。直连和纯 IP 中转都保持 mc.hypixel.net；
+  // 只有线路按域名校验握手时，才把这两项改成线路自己的域名和端口
+  "handshakeHost": "mc.hypixel.net",
+  "handshakePort": 25565,
+
   "translate": {
     "apiKey": "",                   // DeepSeek 密钥，不填就不翻译
     "targetLanguage": "zh-CN",       // 收到的消息翻成什么语言（en / ja 随便填）
@@ -21,7 +26,7 @@
     "translateOutgoing": true,      // 你打的中文翻成英文再发出去，队友能看懂
     "outgoingTargetLanguage": "en", // 发出去的话翻成什么语言
     "onlyPlayerChat": true,         // 只翻玩家聊天，系统提示（You are AFK / +10 EXP）原样
-    "skipShortMessages": 10,        // 去掉名字后字母数 ≤ 10 的短句不翻（nice / gj），0 = 关
+    "skipShortMessages": 3,         // 去掉名字后字母数 ≤ 3 的短句不翻（gj / ty），0 = 关
     "dedupSeconds": 60,             // 同一句 60 秒内重复出现就不再翻，0 = 关
     "skipPrefixes": ["[NPC]"],      // 这些开头的消息不翻；Tab 里这类 NPC 也不查统计
     "skipWords": [

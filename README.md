@@ -129,15 +129,17 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 `/htp` 系列是代理本地指令，**不会发到服务器**，也不会占用 Hypixel 的命令。
 
-| 指令 | 作用 |
-|---|---|
-| `/htp` | 切换发送翻译开/关 |
-| `/htp on` / `/htp off` | 明确开启/关闭发送翻译 |
-| `/htp toggle` | 切换发送翻译 |
-| `/htp outgoing on` / `off` / `toggle` | 同上，带 `outgoing` 的完整写法 |
-| `/htp status` | 查看当前发送翻译状态 |
+每个功能一条：`/htp <功能> on|off`。`on` 开启，`off` 关闭。
 
-开关只对当前会话有效，重连后回到 `translateOutgoing` 的配置值，不会写回 `config.json`。
+| 功能 | 作用 |
+|---|---|
+| `translate` | 翻译总开关（收消息 + 发消息） |
+| `outgoing` | 发消息翻译；需要 `translate` 开着 |
+| `tab` | Tab 统计 |
+| `cheat` | 作弊提醒；需要 `tab` 开着 |
+| `/htp status` | 查看四个开关当前状态 |
+
+输入 `/htp ` 后按 Tab 会补全功能名；再按一次 Tab 会补全 `on/off`。开关直接改当前运行中的配置，不写回 `config.json`。
 
 ### Tab 统计 `tab`
 
@@ -213,7 +215,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 1.8 的玩家列表包 `0x38` 有独立的 `displayName` 字段（也可用 `action=3` 单独更新它）。Tab 一行 = 队伍前缀 + displayName + 队伍后缀，而**头顶名牌不使用 displayName**，所以只改 `displayName` 就能在 Tab 名字后加字而不动名牌。
 
-代价是：一旦下发了 displayName，客户端就不再套 scoreboard 队伍 —— 名字会变纯白、队伍前缀丢失。所以代理同时镜像了 `0x3E` 队伍包（前缀 / 后缀 / 颜色），挂统计时自己拼回去；服务器给的 displayName 则原样保留，一个字不改。
+代价是：一旦下发了 displayName，客户端就不再套 scoreboard 队伍，所以 displayName 为空的玩家需要代理自己补颜色。代理只从 `0x3E` 队伍包读队伍颜色，不补前缀/后缀：服务器给了 displayName 就一字不改，只在后面追加统计，红/绿名字颜色、队伍前缀、点击事件都原样保留；只有 displayName 为空时，才用玩家名 + 队伍色；没队伍色就不写 color，让客户端用原本的默认颜色，不强制白色。队伍前缀/后缀不补，但 `showRankPrefix` 开着时仍会单独补 `[MVP+]` 这类段位标识。
 
 ## 隐私与安全
 
@@ -241,7 +243,7 @@ java -jar target/HypixelTranslate-Proxy.jar
 
 **Tab 上没数字？** 确认 `tab.enabled=true` 且 `hypixelApiKey` 不为空；再看是不是 nick 玩家 / 关闭了 API 统计 / 当天额度用完。
 
-**名字变白、队伍称号没了？** displayName 会覆盖队伍渲染。代理现在会按「队伍色 → 段位色」回刷，并支持从队伍前缀的 `§` 色码 / `"color"` 字段取色；队伍包晚到时约 500ms 内回刷。若仍白，开 `debugTab=true` 看 `[tab]` 日志里的 `队伍前缀 / 队伍色` 是否为空。
+**名字变白、队伍称号没了？** displayName 会覆盖队伍渲染。有 displayName 就原样保留，颜色和前缀都不会被改；displayName 为空时只用玩家名 + 队伍色；没队伍色就不写 color，不强制白色。队伍前缀/后缀不加，但 `showRankPrefix` 的段位标识仍会补。队伍包晚到时约 500ms 内回刷。1.8 的 `0x3E` 队伍包已按 `friendly flags → name tag visibility → collision rule → color` 读取，避免漏读 collision rule 把颜色错位读空。若仍白，开 `debugTab=true` 看 `[tab]` 日志里的 `队伍前缀 / 队伍色` 是否为空。
 
 **译文有时晚一行？** 原文最多等 `appendWaitMs`，超时先放原文，译文后到会单独补一行。
 

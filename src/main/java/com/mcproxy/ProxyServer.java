@@ -72,7 +72,7 @@ public final class ProxyServer {
             System.out.println("  监听:      " + cfg.listenHost + ":" + cfg.listenPort
                     + "   (游戏内用「直接连接」填这个)");
             System.out.println("  上游:      " + cfg.upstreamHost + ":" + cfg.upstreamPort);
-            System.out.println("  握手域名:  " + cfg.handshakeHost + "   (Hypixel 强路由认这个)");
+            System.out.println("  握手域名:  " + cfg.handshakeHost);
             System.out.println("  账号:      " + auth.name());
             System.out.println("  翻译:      " + (cfg.translate.enabled
                     ? cfg.translate.targetLanguage + " via " + cfg.translate.model : "关闭"));

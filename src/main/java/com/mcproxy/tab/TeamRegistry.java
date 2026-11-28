@@ -127,10 +127,19 @@ public final class TeamRegistry {
     public String colorOf(String player) {
         Team t = team(player);
         if (t == null) return "";
-        if (!t.color.isEmpty()) return t.color;
-        // Hypixel 有些队伍把颜色写在 prefix（§c 这种），队伍颜色字段是 -1。
-        // 游戏内没有段位可兜底，这时候要从前缀/后缀里把颜色捞出来。
+
         String fromPrefix = firstColor(t.prefix);
+
+        // Hypixel 的部分队伍会把协议 color 固定发成 15（白色），
+        // 但真正的玩家/队伍颜色放在 prefix 里（例如只有 §a 或 §c）。
+        // 如果仍然无条件相信 §f，TabStats 写入 displayName 后就会把名字染白，
+        // 原本应有的绿色/红色等前缀颜色也无法传递到玩家名上。
+        // 非白色的协议队伍颜色仍优先，避免覆盖真正的队伍颜色。
+        if ("§f".equals(t.color) && !fromPrefix.isEmpty()) return fromPrefix;
+
+        if (!t.color.isEmpty()) return t.color;
+
+        // color=-1（无队伍颜色）时，继续从前缀/后缀取颜色。
         return !fromPrefix.isEmpty() ? fromPrefix : firstColor(t.suffix);
     }
 

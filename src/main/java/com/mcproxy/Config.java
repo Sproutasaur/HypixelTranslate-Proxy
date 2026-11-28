@@ -197,7 +197,7 @@ public final class Config {
          * 去掉玩家名之后，字母数不超过这个值的短句一律不翻。
          * 聊天里大半是 "nice" "gj" "lol rip" 这种，翻了只是多刷一行。设 0 关闭。
          */
-        public Integer skipShortMessages = 10;
+        public Integer skipShortMessages = 3;
 
         /**
          * 以这些开头的消息直接跳过，不翻译。

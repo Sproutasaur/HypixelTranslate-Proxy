@@ -41,15 +41,17 @@ Chat reading, translation and display-name rewriting only. No packet automation,
 
 `/htp` is handled locally by the proxy and **never sent to the server**, so it does not collide with Hypixel commands.
 
-| Command | Effect |
-|---|---|
-| `/htp` | Toggle outgoing translation |
-| `/htp on` / `/htp off` | Explicitly enable/disable outgoing translation |
-| `/htp toggle` | Toggle outgoing translation |
-| `/htp outgoing on` / `off` / `toggle` | Same, with the `outgoing` prefix |
-| `/htp status` | Show the current outgoing-translation state |
+One command per feature: `/htp <feature> on|off`. `on` enables, `off` disables.
 
-The toggle is session-local: reconnecting resets it to the configured `translateOutgoing` value, and it is never written back to `config.json`.
+| Feature | Effect |
+|---|---|
+| `translate` | Master translation switch (incoming + outgoing) |
+| `outgoing` | Outgoing translation; requires `translate` to be on |
+| `tab` | Tab stats |
+| `cheat` | Cheat warnings; requires `tab` to be on |
+| `/htp status` | Show the current state of all four switches |
+
+Type `/htp ` and press Tab to complete feature names; press Tab again to complete `on/off`. The switches change the running config in memory and are not written back to `config.json`.
 
 ## Supported languages
 
@@ -105,7 +107,7 @@ Keep the handshake hostname at its default `mc.hypixel.net` — Hypixel routes b
 
 **Chat** — clientbound `0x02` JSON components are flattened (`{"translate":"chat.type.text"}` → `Steve: text`), filtered and sent to `{baseUrl}/chat/completions`. The outbox re-emits the original packet followed by a `└ translation` line at the `CHAT` position (the `SYSTEM` position is a fixed-line channel in 1.8 and would overwrite itself). Serverbound `0x01` is only translated when it contains CJK, is under 100 characters, does not start with `!`, and `apiKey` is set; chat commands keep their command and player name. On timeout, failure or a full queue the original message is sent anyway.
 
-**Tab** — 1.8's `0x38` has a `displayName` field used only by the Tab list (nameplates use the real name), so appending stats is a single `action=3` update. Since a non-empty `displayName` makes the client stop applying scoreboard teams, the proxy mirrors `0x3E` team packets (prefix/suffix/colour) and rebuilds them itself.
+**Tab** — 1.8's `0x38` has a `displayName` field used only by the Tab list (nameplates use the real name), so appending stats is a single `action=3` update. Since a non-empty `displayName` makes the client stop applying scoreboard teams, the proxy mirrors `0x3E` team packets (prefix/suffix/colour) for names whose `displayName` is empty. When the server does provide a `displayName`, it is kept byte-for-byte and stats are appended after it, so its red/green colour and team prefix are preserved; only an empty `displayName` is rebuilt as the plain player name with the team colour; when there is no team colour, no `color` is written at all, so the client keeps its own default colour instead of being forced to white. No team prefix/suffix is added; `showRankPrefix` still prepends the rank tag (e.g. `[MVP+]`) without changing the name colour. The 1.8 `0x3E` parser reads `collision rule` before the colour byte, so team colours are not lost to a shifted packet layout.
 
 ## Privacy and safety
 

@@ -98,8 +98,9 @@ public final class Translator {
     /** Steve: / <Steve> 这类名字前缀 */
     private static final Pattern NAME_PREFIX = Pattern.compile("^<?([A-Za-z0-9_]{1,16})>?\\s*[:>]\\s*");
     /** 整行任意位置找 "名字: " 这样的说话人（Hypixel 会有 "Party > [MVP+] Steve: hi"） */
+    /** 名字后面可能还跟着 "_"（Hypixel 昵称会这样），所以冒号前允许一个可选下划线 */
     private static final Pattern SPEAKER_ANY =
-            Pattern.compile("(?<![A-Za-z0-9_])([A-Za-z0-9_]{2,16})\\s*[:>]\\s*(?=\\S)");
+            Pattern.compile("(?<![A-Za-z0-9_])([A-Za-z0-9_]{2,16})\\s*(?:_)?\\s*[:>]\\s*(?=\\S)");
 
     /** 这些"说话人"其实是系统提示的前缀，不是玩家 */
     private static final java.util.Set<String> NOT_A_NAME = java.util.Set.of(
@@ -379,6 +380,16 @@ public final class Translator {
     /** 去掉 "Steve: " / "<Steve> " / "[MVP+] Steve: " 这类前缀，只看真正说的内容。 */
     private static String stripNamePrefix(String text) {
         String t = ChatText.stripFormatting(text == null ? "" : text);
+
+        // 先按"任意位置出现 名字: "切：Hypixel 常带 "Party > "、中文昵称、段位标签，
+        // 只在行首匹配会整行剥不掉，导致短句/黑话判定拿整行去比。
+        java.util.regex.Matcher any = SPEAKER_ANY.matcher(t);
+        while (any.find()) {
+            if (!NOT_A_NAME.contains(any.group(1).toLowerCase(java.util.Locale.ROOT))) {
+                return t.substring(any.end()).trim();
+            }
+        }
+
         while (true) {
             java.util.regex.Matcher m = TAG_PREFIX.matcher(t);
             if (!m.find()) break;

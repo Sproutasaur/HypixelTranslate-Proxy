@@ -1,5 +1,6 @@
 package com.mcproxy.proto;
 
+import com.mcproxy.Config;
 import com.mcproxy.Session;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -24,13 +25,9 @@ public final class ClientHandler extends ChannelInboundHandlerAdapter {
 
     private final Session session;
     private int state = STATE_HANDSHAKE;
-    /** 发送翻译开关，只对当前会话生效；重连后回到 config 里的初始值 */
-    private final java.util.concurrent.atomic.AtomicBoolean outgoingTranslation;
 
     public ClientHandler(Session session) {
         this.session = session;
-        this.outgoingTranslation = new java.util.concurrent.atomic.AtomicBoolean(
-                session.config().translate.translateOutgoing);
     }
 
     public void enterPlay() {
@@ -115,6 +112,15 @@ public final class ClientHandler extends ChannelInboundHandlerAdapter {
         ByteBuf copy = buf.duplicate();
         try {
             int id = VarInt.read(copy);
+            if (id == Ids.PLAY_TAB_COMPLETE_SERVERBOUND) {
+                String text = Buf.readString(copy);
+                java.util.List<String> matches = htpTabCompletions(text);
+                if (matches != null) {
+                    session.sendTabComplete(matches);
+                    buf.release();
+                    return;
+                }
+            }
             if (id == Ids.PLAY_CHAT_SERVERBOUND) {
                 String message = Buf.readString(copy);
 
@@ -125,7 +131,7 @@ public final class ClientHandler extends ChannelInboundHandlerAdapter {
                 }
 
                 // 没开翻译、没填 key 就别扣消息：扣了也只能等超时再把原文发出去
-                if (outgoingTranslation.get()
+                if (session.config().translate.translateOutgoing
                         && session.config().translate.enabled
                         && session.config().translate.apiKey != null
                         && !session.config().translate.apiKey.isBlank()) {
@@ -147,13 +153,14 @@ public final class ClientHandler extends ChannelInboundHandlerAdapter {
         session.toServer(buf);
     }
 
+    private static final java.util.List<String> FEATURES =
+            java.util.List.of("translate", "outgoing", "tab", "cheat", "status");
+    private static final java.util.List<String> VALUES =
+            java.util.List.of("on", "off");
+
     /**
      * 处理代理本地指令。返回 true 表示这条已经被消费，不能再发往服务器。
-     *
-     *   /htp                    切换发送翻译
-     *   /htp on|off|toggle      切换发送翻译
-     *   /htp outgoing on|off    明确开关
-     *   /htp status             查看当前状态
+     * 每个功能一条：/htp <feature> on|off。
      */
     private boolean handleLocalCommand(String message) {
         if (message == null) return false;
@@ -162,78 +169,162 @@ public final class ClientHandler extends ChannelInboundHandlerAdapter {
         String[] parts = command.substring(1).trim().split("\\s+");
         if (parts.length == 0 || !"htp".equalsIgnoreCase(parts[0])) return false;
 
-        if (parts.length == 1) {
-            setOutgoingTranslation(!outgoingTranslation.get());
+        String feature = parts.length >= 2 ? parts[1].toLowerCase(java.util.Locale.ROOT) : "";
+        if ("status".equals(feature)) {
+            notifyStatus();
+            return true;
+        }
+        if (parts.length != 3 || !FEATURES.contains(feature)) {
+            notifyUsage();
             return true;
         }
 
-        String sub = parts[1].toLowerCase(java.util.Locale.ROOT);
-        switch (sub) {
-            case "on" -> {
-                setOutgoingTranslation(true);
-                return true;
-            }
-            case "off" -> {
-                setOutgoingTranslation(false);
-                return true;
-            }
-            case "toggle" -> {
-                setOutgoingTranslation(!outgoingTranslation.get());
-                return true;
-            }
-            case "status" -> {
-                notifyOutgoingStatus();
-                return true;
-            }
-            case "outgoing" -> {
-                if (parts.length == 2) {
-                    setOutgoingTranslation(!outgoingTranslation.get());
-                } else {
-                    String value = parts[2].toLowerCase(java.util.Locale.ROOT);
-                    if ("on".equals(value)) {
-                        setOutgoingTranslation(true);
-                    } else if ("off".equals(value)) {
-                        setOutgoingTranslation(false);
-                    } else if ("toggle".equals(value)) {
-                        setOutgoingTranslation(!outgoingTranslation.get());
-                    } else {
-                        notifyUsage();
-                    }
-                }
-                return true;
-            }
-            default -> {
-                notifyUsage();
-                return true;
-            }
+        Boolean on = parseOnOff(parts[2]);
+        if (on == null) {
+            notifyUsage();
+            return true;
         }
+        setFeature(feature, on);
+        return true;
     }
 
-    private void setOutgoingTranslation(boolean on) {
-        outgoingTranslation.set(on);
-        boolean ready = session.config().translate.enabled
-                && session.config().translate.apiKey != null
-                && !session.config().translate.apiKey.isBlank();
-        String text = "[HTP] 发送翻译" + (on ? "已开启" : "已关闭");
+    private static Boolean parseOnOff(String value) {
+        return switch (value.toLowerCase(java.util.Locale.ROOT)) {
+            case "on" -> Boolean.TRUE;
+            case "off" -> Boolean.FALSE;
+            default -> null;
+        };
+    }
+
+    private void setFeature(String feature, boolean on) {
+        Config cfg = session.config();
+        switch (feature) {
+            case "translate" -> cfg.translate.enabled = on;
+            case "outgoing" -> cfg.translate.translateOutgoing = on;
+            case "tab" -> cfg.tab.enabled = on;
+            case "cheat" -> cfg.tab.cheatWarn.enabled = on;
+            default -> { }
+        }
+        notifyFeature(feature, on);
+    }
+
+    private void notifyFeature(String feature, boolean on) {
+        String label = switch (feature) {
+            case "translate" -> "翻译总开关";
+            case "outgoing" -> "发消息翻译";
+            case "tab" -> "Tab 统计";
+            case "cheat" -> "作弊提醒";
+            default -> feature;
+        };
+        String text = "[HTP] " + label + (on ? "已开启" : "已关闭");
         String color = on ? "green" : "red";
-        if (on && !ready) {
-            text = "[HTP] 发送翻译已开启，但翻译总开关或 API key 未配置，暂不会生效";
+
+        if ("outgoing".equals(feature) && on && !session.config().translate.enabled) {
+            text += "（翻译总开关关闭，实际不会生效）";
+            color = "yellow";
+        } else if ("cheat".equals(feature) && on && !session.config().tab.enabled) {
+            text += "（Tab 未开启，作弊提醒不会生效）";
+            color = "yellow";
+        } else if ("tab".equals(feature) && !on) {
+            text += "（作弊提醒也随之不查）";
             color = "yellow";
         }
-        String json = "{\"text\":\"" + text + "\",\"color\":\"" + color + "\"}";
-        session.sendSelfChatJson(json);
+        session.sendSelfChatJson("{\"text\":\"" + text + "\",\"color\":\"" + color + "\"}");
     }
 
-    private void notifyOutgoingStatus() {
-        boolean on = outgoingTranslation.get();
-        String json = "{\"text\":\"[HTP] 发送翻译当前："
-                + (on ? "开启" : "关闭") + "\",\"color\":\"" + (on ? "green" : "red") + "\"}";
-        session.sendSelfChatJson(json);
+    private void notifyStatus() {
+        Config cfg = session.config();
+        sendLocal("yellow", "[HTP] 当前开关");
+        sendLocal("gray", "翻译：" + onOff(cfg.translate.enabled));
+        sendLocal("gray", "发消息：" + onOff(cfg.translate.translateOutgoing));
+        sendLocal("gray", "Tab：" + onOff(cfg.tab.enabled));
+        sendLocal("gray", "作弊提醒：" + onOff(cfg.tab.cheatWarn.enabled));
+        sendLocal("gray", "队伍数据：" + session.teams().stats());
+    }
+
+    private static String onOff(boolean on) {
+        return on ? "on" : "off";
     }
 
     private void notifyUsage() {
-        session.sendSelfChatJson("{\"text\":\"[HTP] 用法：/htp、/htp on|off|toggle、"
-                + "/htp outgoing on|off|toggle、/htp status\",\"color\":\"yellow\"}");
+        sendLocal("yellow", "[HTP] 用法");
+        sendLocal("aqua", "/htp translate on/off - 翻译总开关");
+        sendLocal("aqua", "/htp outgoing on/off - 发消息前翻译");
+        sendLocal("aqua", "/htp tab on/off - Tab 统计");
+        sendLocal("aqua", "/htp cheat on/off - 作弊提醒");
+        sendLocal("aqua", "/htp status - 查看当前开关");
+    }
+
+    /** 一行一条发到自己聊天栏；1.8 的 text 字段不解析 § 码，颜色走 color 字段。 */
+    private void sendLocal(String color, String line) {
+        session.sendSelfChatJson("{\"text\":\"" + line + "\",\"color\":\"" + color + "\"}");
+    }
+
+    /**
+     * /htp 的 Tab 补全。返回 null 表示不是 /htp，交给上游处理；返回空列表表示没有候选。
+     */
+    private static java.util.List<String> htpTabCompletions(String text) {
+        if (text == null) return null;
+        String lower = text.toLowerCase(java.util.Locale.ROOT);
+        int start;
+        if (lower.startsWith("/htp")) start = 4;
+        else if (lower.startsWith("htp")) start = 3;
+        else return null;
+
+        String rest = text.substring(start);
+        // 光标还在命令本身：给整条候选，让客户端先补到 "/htp " 并列出功能。
+        // 已经进入参数后只能给"当前这个词"的片段，否则客户端会把整条再拼一遍，
+        // 结果就是 "/htp /htp translate"。
+        if (rest.isEmpty()) return commandCandidates();
+
+        if (!rest.startsWith(" ")) {
+            return featureMatches(rest);
+        }
+        String afterSpace = rest.substring(1);
+        int sp = afterSpace.indexOf(' ');
+        if (sp < 0) {
+            java.util.List<String> matches = featureMatches(afterSpace);
+            // 功能名已经完整时补一个空格，按 Tab 直接进参数位，不用再手打空格。
+            if (matches.size() == 1 && matches.get(0).equalsIgnoreCase(afterSpace)
+                    && !"status".equalsIgnoreCase(afterSpace)) {
+                return java.util.List.of(afterSpace.toLowerCase(java.util.Locale.ROOT) + " ");
+            }
+            return matches;
+        }
+
+        String feature = afterSpace.substring(0, sp).toLowerCase(java.util.Locale.ROOT);
+        String partial = afterSpace.substring(sp + 1);
+        if (partial.indexOf(' ') >= 0 || "status".equals(feature) || !FEATURES.contains(feature)) {
+            return java.util.List.of();
+        }
+        return valueMatches(feature, partial);
+    }
+
+    /** 还在命令本身时给整条候选，客户端会把公共前缀补成 "/htp " 并列出来。 */
+    private static java.util.List<String> commandCandidates() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String feature : FEATURES) out.add("/htp " + feature);
+        return out;
+    }
+
+    /** 参数位置只返回要补的那个词，客户端自己会保留前面的 "/htp "。 */
+    private static java.util.List<String> featureMatches(String partial) {
+        String p = partial.toLowerCase(java.util.Locale.ROOT);
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String feature : FEATURES) {
+            if (feature.startsWith(p)) out.add(feature);
+        }
+        return out;
+    }
+
+    /** 同上：只补 on/off，不把 "/htp tab " 再塞回去。 */
+    private static java.util.List<String> valueMatches(String feature, String partial) {
+        String p = partial.toLowerCase(java.util.Locale.ROOT);
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String value : VALUES) {
+            if (value.startsWith(p)) out.add(value);
+        }
+        return out;
     }
 
     /** 服务器列表里的 MOTD。文本/人数从配置读，支持 § 颜色码和 \n 换行。 */
